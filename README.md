@@ -20,7 +20,8 @@ This plugin allows to embed code files from Obsidian vault or remote file (eg., 
 ### Additional Changes
 Additional changes were made to the embed display to add a better fitting title bar (closer resemblace to the code block). 
 Modified some buttons and styles to the embed display to allow better usability.
-Allowed for local filepaths to be used in embed display
+Allowed for local filepaths to be used in embed display.
+Open VSCode Editor from embedded code file. 
 
 ## Using the embed block
 First you need to activate the plugin from Community Plugins. Then you can embed the code as follow:
@@ -60,5 +61,80 @@ The `PATH`, `LINES` and `TITLE` properties are set as YAML key-value paris:
 * `PATH` should be the file to embed from the vault or a remote address. If you use github make sure to use `https://raw.githubusercontent.com/...`
 * `LINES` will include only the specified lines of code. The set of included lines will append dots (`...`) to show any excluded lines in the file.
 * `TITLE` will set the title displayed above the embeded code. If the `TITLE` is not set then the filename of the embeded file will be displayed.
+
+## Using Obsidian VSCode Editor
+
+### Basic features
+- It **does not depend on** any third-party network services and can be used even when not connected to the internet.
+- Support for viewing and editing files in various code formats, just like editing code with VSCode.
+- Supports customization of the editor's theme colors, including light and dark themes.
+- Allows customization of the editor's font size, and provides a shortcut to adjust the font size using `Ctrl + mouse wheel`.
+- Supports editing individual code blocks from any Markdown document.
+- Supports Internal links quick preview.
+- Supports automatic code wrapping, and toggles it with `alt + z`.
+- Provides the option to show/hide line numbers.
+- Offers the choice to display/hide indent guides.
+- Allows toggling the display of the code minimap.
+- Supports shortcut icon buttons or commands for creating new code files.
+
+### Using different code files
+
+The default extensions are `ts, js, py, css, c, cpp, go, rs, java, lua, php`. 
+You can add extensions to this list or allow any file extension by toggling the `Allow all files` toggle
+
+### Supported Shortcuts
+
+Most of the shortcuts are consistent with VS Code. Here are some of the supported shortcuts:
+
+| Category     | Shortcut               | Action                    |
+| ------------ | ---------------------- | ------------------------- |
+| Ctrl         | `ctrl + c`             | Copy                      |
+|              | `ctrl + x`             | Cut                       |
+|              | `ctrl + v`             | Paste                     |
+|              | `ctrl + s`             | Save                      |
+|              | `ctrl + a`             | Select All                |
+|              | `ctrl + f`             | Find                      |
+|              | `ctrl + h`             | Replace                   |
+|              | `ctrl + z`             | Undo                      |
+|              | `ctrl + y`             | Redo                      |
+|              | `ctrl + /`             | Toggle Comment            |
+|              | `ctrl + d`             | Duplicate Line            |
+|              | `ctrl + [`             | Decrease Indent           |
+|              | `ctrl + ]`             | Increase Indent           |
+|              | `ctrl + ↑`             | Move Line Up              |
+|              | `ctrl + ↓`             | Move Line Down            |
+|              | `ctrl + ←`             | Move Cursor Left by Word  |
+|              | `ctrl + →`             | Move Cursor Right by Word |
+|              | `ctrl + Backspace`     | Delete Word Left          |
+|              | `ctrl + Delete`        | Delete Word Right         |
+| Ctrl + Shift | `ctrl + shift + z`     | Redo                      |
+|              | `ctrl + shift + k`     | Delete Current Line       |
+|              | `ctrl + shift + [`     | Fold Code Block           |
+|              | `ctrl + shift + ]`     | Unfold Code Block         |
+|              | `ctrl + shift + enter` | Insert Line Above         |
+|              | `ctrl + enter`         | Insert Line Below         |
+| Alt          | `alt + z`              | Toggle Word Wrap          |
+
+### Additional Usage
+
+You can create a code file by clicking the **Create code file** button in the left panel
+
+The plugin also supports editing code blocks from any Markdown document in the editor.
+You can just right click on any code block and click on "**Edit Code Block in VSCode Editor Plugin**".
+
+Quick preview links will allow you to link to a code file and hovering the cursor over the link will allow for a **quick preview**
+
+## Installation
+
+**Installation from Obsidian's community plugins**: 
+1. Open Settings > community plugins
+2. Turn off 'Safe mode'
+3. Click 'Browse' button to browse plugins
+4. Search for 'VSCode Editor'
+5. Click 'Install' button
+6. Once installed, close the plugins browse window and go back community plugins window, and activate the newly installed plugin below installed plugins list
+7. Enable the `Detect all file extensions` setting in **Settings > Files & Links** as code files will not appear otherwise
+
+
 
 
