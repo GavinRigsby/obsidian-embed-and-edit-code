@@ -1,6 +1,5 @@
 # obsidian-embed-and-edit-code
 
-## About the project
 This project is a merge of 2 other obsidian plugins as they had functionality I liked but did not work together. 
 Here are the repositories for [embed-code-file](https://github.com/almariah/embed-code-file) and [obsidian-vs-code-editor](https://github.com/sunxvming/obsidian-vscode-editor/tree/main). 
 Make sure to give the original devs some love as most work came from them and I just merged and added some slight tweaks to my liking.
