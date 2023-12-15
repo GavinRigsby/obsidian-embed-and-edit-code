@@ -1,0 +1,65 @@
+.markdown-rendered pre .obsidian-embed-code-file {
+    position: absolute;
+    top: 5px;
+    left: 0px;
+    font-size: 85%!important;
+    border-radius: 0px!important;
+}
+
+.markdown-rendered pre code {
+    margin-top: 40px;
+}
+
+.markdown-rendered div pre button.copy-code-button {
+    right: 30px;
+}
+
+.markdown-rendered div.edit-block-button {
+    top: 8px!important;
+}
+
+.markdown-rendered div pre button.obsidian-markdown-code-edit {
+    display:none;
+    margin: 6px;
+    padding: 6px 8px;
+    height: auto;
+    background-color: transparent;
+    box-shadow: none;
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    font-family: var(--font-interface);
+    position: absolute;
+    top: 0;
+    right: 75px;
+}
+
+.markdown-rendered div pre:hover button.obsidian-markdown-code-edit {
+    display: block;
+}
+
+.markdown-rendered div pre:hover button.copy-code-button {
+    display: block;
+}
+
+.markdown-rendered:hover div pre button.obsidian-markdown-code-edit:hover {
+    box-shadow: var(--input-shadow);
+    background-color: var(--background-modifier-hover);
+}
+
+.create-code-file-modal{
+    display: flex;
+    align-items : center;
+}
+
+.modal_input{
+    flex-grow: 1;
+    margin-right: 10px;
+}
+
+.modal_select{
+    margin-right: 10px;
+}
+
+.setting_ext textarea{
+    height: 6rem !important;
+}
