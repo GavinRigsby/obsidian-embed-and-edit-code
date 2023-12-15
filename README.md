@@ -21,6 +21,7 @@ Additional changes were made to the embed display to add a better fitting title 
 Modified some buttons and styles to the embed display to allow better usability.
 Allowed for local filepaths to be used in embed display.
 Open VSCode Editor from embedded code file. 
+Create code buttons creates the file in the current directory (no longer the root)
 
 ## Using the embed block
 First you need to activate the plugin from Community Plugins. Then you can embed the code as follow:
