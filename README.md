@@ -21,7 +21,9 @@ This plugin allows to embed code files from Obsidian vault or remote file (eg., 
 * Modified some buttons and styles to the embed display to allow better usability.
 * Allowed for local filepaths to be used in embed display.
 * Open VSCode Editor from embedded code file.
-* Create code buttons creates the file in the current directory (no longer the root)
+* Create code buttons creates the file in the current directory (no longer the root).
+* Clicking Edit button and returning to the page with embeded code will automatically update (5 second max wait).
+* Clicking Refresh button will automatically update the code (No longer have to edit block then rebuild).
 
 ## Using the embed block
 First you need to activate the plugin from Community Plugins. Then you can embed the code as follow:
