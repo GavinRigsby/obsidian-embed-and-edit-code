@@ -1,4 +1,4 @@
-import { Modal, Notice } from "obsidian";
+import { Modal, Notice, TFile } from "obsidian";
 import { mountCodeEditor } from "./mountCodeEditor";
 import CodeFilesPlugin from "./main";
 import { FenceEditContext } from "./fenceEditContext";
@@ -64,4 +64,5 @@ export class FenceEditModal extends Modal {
 			(value) => context.replaceFenceContent(value)
 		).open();
 	}
+
 }

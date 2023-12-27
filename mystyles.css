@@ -11,7 +11,7 @@
 }
 
 .markdown-rendered div pre button.copy-code-button {
-    right: 30px;
+    right: 65px;
 }
 
 .markdown-rendered div.edit-block-button {
@@ -30,7 +30,7 @@
     font-family: var(--font-interface);
     position: absolute;
     top: 0;
-    right: 75px;
+    right: 110px;
 }
 
 .markdown-rendered div pre:hover button.obsidian-markdown-code-edit {
@@ -41,10 +41,43 @@
     display: block;
 }
 
-.markdown-rendered:hover div pre button.obsidian-markdown-code-edit:hover {
+.markdown-rendered div pre:hover button.obsidian-markdown-code-edit:hover {
     box-shadow: var(--input-shadow);
     background-color: var(--background-modifier-hover);
 }
+
+
+#embeded-code > pre > button.obsidian-markdown-code-refresh{
+    display:none;
+    margin: 6px;
+    padding: 6px 8px;
+    height: auto;
+    background-color: transparent;
+    box-shadow: none;
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    font-family: var(--font-interface);
+    position: absolute;
+    top: 0;
+    right: 30px;
+}
+
+#embeded-code > pre > button.obsidian-markdown-code-refresh > svg{
+    fill:var(--text-muted);
+}
+
+
+#embeded-code > pre:hover > button.obsidian-markdown-code-refresh {
+    display: block;
+}
+
+
+#embeded-code > pre:hover > button.obsidian-markdown-code-refresh:hover {
+    box-shadow: var(--input-shadow);
+    background-color: var(--background-modifier-hover);
+}
+
+
 
 .create-code-file-modal{
     display: flex;
@@ -63,3 +96,5 @@
 .setting_ext textarea{
     height: 6rem !important;
 }
+
+

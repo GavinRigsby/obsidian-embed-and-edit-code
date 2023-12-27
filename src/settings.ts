@@ -28,5 +28,5 @@ export const DEFAULT_SETTINGS: EmbedAndEditSettings = {
 	fontSize: 16,
 }
 
-export const viewType = "vscode-editor";
+export const viewType = "code-editor";
 
