@@ -448,7 +448,7 @@ class EmbeddedCode{
 		
 		this.render().then();
 
-		var htmlContent = element.innerHTML;
+		let htmlContent = element.innerHTML;
 		element.innerHTML = htmlContent;
 	}
 
@@ -463,7 +463,7 @@ class EmbeddedCode{
 			//Handle refreshing page
 			
 			space.containerEl.findAll("#embeded-code").forEach (element =>{
-				var elementPath = element.find('.filepath')?.textContent;
+				let elementPath = element.find('.filepath')?.textContent;
 				if (elementPath == codePath)
 				{
 					this.Refresh(space, element);
@@ -657,8 +657,6 @@ export default class EmbedAndEditCode extends Plugin {
 	}
 
 	onunload() {
-		const openLeaves = this.app.workspace.getLeavesOfType(viewType);
-        openLeaves.forEach((leaf) => leaf.detach());
 		this.observer.disconnect();
 	}
 
