@@ -5,6 +5,6 @@
 	"minAppVersion": "0.15.0",
 	"description": "This is a plugin for Obsidian that allows for embedding, and editing code files.",
 	"author": "Gavin Rigsby",
-	"authorUrl": "https://github.com/GavinRigsby/obsidian-embed-and-edit-code/tree/main",
+	"authorUrl": "https://github.com/GavinRigsby",
 	"isDesktopOnly": false
 }
