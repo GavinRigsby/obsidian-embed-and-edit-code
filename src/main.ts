@@ -313,7 +313,7 @@ class EmbeddedCode{
 	}
 
 	addModifyButton() {
-		let editButton = this.container.querySelector('.obsidian-markdown-code-edit') as HTMLButtonElement;
+		let editButton = this.container.querySelector('.markdown-code-edit') as HTMLButtonElement;
 
 		if (editButton){
 			editButton.addEventListener('click', async () => {
@@ -324,7 +324,7 @@ class EmbeddedCode{
 			new Notice(`Cannot locate Edit Button`);
 		}
 
-		let refreshButton = this.container.querySelector('.obsidian-markdown-code-refresh') as HTMLButtonElement;
+		let refreshButton = this.container.querySelector('.markdown-code-refresh') as HTMLButtonElement;
 
 		if (refreshButton){
 			refreshButton.addEventListener('click', async () => {
@@ -384,18 +384,21 @@ class EmbeddedCode{
 		// Creates Title
 		let titleElement = document.createElement("pre");
 		titleElement.appendText(title);
-		titleElement.className = "obsidian-embed-code-file";
+		titleElement.className = "embed-code-file";
 		pre.prepend(titleElement);
 
 		// Creates Modify Button
 		let editButton = document.createElement("button");
 		editButton.appendText("Edit")
-		editButton.addClass("obsidian-markdown-code-edit");
+		editButton.addClass("markdown-code-edit");
 		pre.append(editButton)
 
 		let refreshButton = document.createElement("button");
-		refreshButton.addClass("obsidian-markdown-code-refresh");
+		refreshButton.addClass("markdown-code-refresh");
 		refreshButton.ariaLabel = "Refresh Content";
+
+		// cannot use createEl as svg is not accepted
+		// static image with no input 
 		refreshButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="20" height="20" viewBox="0 0 30 30">
 <path d="M 15 3 C 12.031398 3 9.3028202 4.0834384 7.2070312 5.875 A 1.0001 1.0001 0 1 0 8.5058594 7.3945312 C 10.25407 5.9000929 12.516602 5 15 5 C 20.19656 5 24.450989 8.9379267 24.951172 14 L 22 14 L 26 20 L 30 14 L 26.949219 14 C 26.437925 7.8516588 21.277839 3 15 3 z M 4 10 L 0 16 L 3.0507812 16 C 3.562075 22.148341 8.7221607 27 15 27 C 17.968602 27 20.69718 25.916562 22.792969 24.125 A 1.0001 1.0001 0 1 0 21.494141 22.605469 C 19.74593 24.099907 17.483398 25 15 25 C 9.80344 25 5.5490109 21.062074 5.0488281 16 L 8 16 L 4 10 z"></path>
 </svg>`;
@@ -448,8 +451,8 @@ class EmbeddedCode{
 		
 		this.render().then();
 
-		let htmlContent = element.innerHTML;
-		element.innerHTML = htmlContent;
+		//var htmlContent = element.innerHTML;
+		//element.innerHTML = htmlContent;
 	}
 
 	tryRefresh(space: Workspace, currentFile: string, codePath: string,  interval: number, timeout: number) {
@@ -463,7 +466,7 @@ class EmbeddedCode{
 			//Handle refreshing page
 			
 			space.containerEl.findAll("#embeded-code").forEach (element =>{
-				let elementPath = element.find('.filepath')?.textContent;
+				var elementPath = element.find('.filepath')?.textContent;
 				if (elementPath == codePath)
 				{
 					this.Refresh(space, element);
@@ -614,19 +617,26 @@ export default class EmbedAndEditCode extends Plugin {
 				let targetTop = targetRect.top;
 				let targetBottom = targetRect.bottom;
 				let targeRight = targetRect.right
-				node.style.position = "absolute";
-				node.style.left = `${x + gep}px`;
+
+				let left = `${x + gep}px`;
+				let top = '';
 
 				let spaceBelow = window.innerHeight - y - gep * 3;
 				let spaceAbove = y - gep * 3;
 				if (spaceBelow > h) {
-					node.style.top = `${targetBottom + gep}px`;
+					top = `${targetBottom + gep}px`;
 				} else if (spaceAbove > h) {
-					node.style.top = `${targetTop - h - gep}px`;
+					top = `${targetTop - h - gep}px`;
 				} else {
-					node.style.top = `${targetTop - (h / 2) - gep}px`;
-					node.style.left = `${targeRight + gep * 2}px`;
+					top = `${targetTop - (h / 2) - gep}px`;
+					left = `${targeRight + gep * 2}px`;
 				}
+
+				node.setCssProps({
+					"postion": "absolution",
+					"left": left,
+					"top" : top
+				})
 			}
 
 			contentEl.setCssProps({
@@ -657,6 +667,8 @@ export default class EmbedAndEditCode extends Plugin {
 	}
 
 	onunload() {
+		const openLeaves = this.app.workspace.getLeavesOfType(viewType);
+        openLeaves.forEach((leaf) => leaf.detach());
 		this.observer.disconnect();
 	}
 

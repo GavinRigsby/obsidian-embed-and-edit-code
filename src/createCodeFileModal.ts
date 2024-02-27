@@ -60,13 +60,21 @@ export class CreateCodeFileModal extends Modal {
 	async complete() {
 		this.close();
 		console.log(this.parent);
-		const parent = (this.parent instanceof TFile ? this.parent.parent : this.parent) as TFolder;
+		let parent = null;
+
+		if (this.parent instanceof TFile){
+			parent = this.parent.parent as TFolder;
+		}
+		else {
+			parent = this.parent as TFolder;
+		}
+
 		const newPath = `${parent.path}/${this.fileName}.${this.fileExtension}`;
 		const existingFile = this.app.vault.getAbstractFileByPath(normalizePath(newPath));
 		if (existingFile && existingFile instanceof TFile) {
 			new Notice("File already exists");
 			const leaf = this.app.workspace.getLeaf(true);
-			leaf.openFile(existingFile as any);
+			leaf.openFile(existingFile);
 			return;
 		}
 		

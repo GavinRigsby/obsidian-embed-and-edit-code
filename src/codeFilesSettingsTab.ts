@@ -52,8 +52,7 @@ export class CodeFilesSettingsTab extends PluginSettingTab {
 				}))
 			.settingEl.createDiv('', (el) => {
 				fontSizeText = el;
-				el.style.minWidth = "2.3em";
-				el.style.textAlign = "right";
+				el.className = "setting-elm"
 				el.innerText = " " + this.plugin.settings.fontSize.toString();
 			});
 

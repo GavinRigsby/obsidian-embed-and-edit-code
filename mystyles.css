@@ -1,4 +1,4 @@
-.markdown-rendered pre .obsidian-embed-code-file {
+.markdown-rendered pre .embed-code-file {
     position: absolute;
     top: 5px;
     left: 0px;
@@ -18,7 +18,7 @@
     top: 8px!important;
 }
 
-.markdown-rendered div pre button.obsidian-markdown-code-edit {
+.markdown-rendered div pre button.markdown-code-edit {
     display:none;
     margin: 6px;
     padding: 6px 8px;
@@ -33,7 +33,7 @@
     right: 110px;
 }
 
-.markdown-rendered div pre:hover button.obsidian-markdown-code-edit {
+.markdown-rendered div pre:hover button.markdown-code-edit {
     display: block;
 }
 
@@ -41,13 +41,13 @@
     display: block;
 }
 
-.markdown-rendered div pre:hover button.obsidian-markdown-code-edit:hover {
+.markdown-rendered div pre:hover button.markdown-code-edit:hover {
     box-shadow: var(--input-shadow);
     background-color: var(--background-modifier-hover);
 }
 
 
-#embeded-code > pre > button.obsidian-markdown-code-refresh{
+#embeded-code > pre > button.markdown-code-refresh{
     display:none;
     margin: 6px;
     padding: 6px 8px;
@@ -62,17 +62,17 @@
     right: 30px;
 }
 
-#embeded-code > pre > button.obsidian-markdown-code-refresh > svg{
+#embeded-code > pre > button.markdown-code-refresh > svg{
     fill:var(--text-muted);
 }
 
 
-#embeded-code > pre:hover > button.obsidian-markdown-code-refresh {
+#embeded-code > pre:hover > button.markdown-code-refresh {
     display: block;
 }
 
 
-#embeded-code > pre:hover > button.obsidian-markdown-code-refresh:hover {
+#embeded-code > pre:hover > button.markdown-code-refresh:hover {
     box-shadow: var(--input-shadow);
     background-color: var(--background-modifier-hover);
 }
@@ -97,4 +97,16 @@
     height: 6rem !important;
 }
 
+.setting-elm {
+    min-width: 2.3em;
+    text-align: right;
+}
 
+.dialog-height {
+    height: var(--dialog-height)
+}
+
+.btn-close-modal {
+    background: var(--modal-background);
+    z-index: 9999;
+}
