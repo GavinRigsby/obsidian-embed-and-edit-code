@@ -30,7 +30,7 @@
     font-family: var(--font-interface);
     position: absolute;
     top: 0;
-    right: 110px;
+    right: 100px;
 }
 
 .markdown-rendered div pre:hover button.markdown-code-edit {
