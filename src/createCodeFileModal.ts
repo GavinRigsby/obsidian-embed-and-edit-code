@@ -10,10 +10,11 @@ import {
 	TFolder
 } from "obsidian";
 import CodeFilesPlugin from "./main";
+import { extensions } from "./constants";
 
 export class CreateCodeFileModal extends Modal {
 	fileName = "My code file";
-	fileExtension = this.plugin.settings.extensions[0];
+	fileExtension = "txt";
 	parent: TAbstractFile;
 
 	constructor(private plugin: CodeFilesPlugin, parentFile?: TAbstractFile) {
@@ -36,7 +37,7 @@ export class CreateCodeFileModal extends Modal {
 
 		const fileExtensionInput = new DropdownComponent(contentEl);
 		fileExtensionInput.selectEl.addClass("modal_select");
-		fileExtensionInput.addOptions(this.plugin.settings.extensions.reduce((acc, ext) => {
+		fileExtensionInput.addOptions(extensions.reduce((acc, ext) => {
 			acc[ext] = ext;
 			return acc;
 		}, {} as any));
@@ -59,7 +60,6 @@ export class CreateCodeFileModal extends Modal {
 
 	async complete() {
 		this.close();
-		console.log(this.parent);
 		let parent = null;
 
 		if (this.parent instanceof TFile){

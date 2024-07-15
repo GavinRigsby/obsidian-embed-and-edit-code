@@ -8,7 +8,7 @@ import { t } from 'src/lang/helpers';
 import { FenceEditModal } from "./fenceEditModal";
 import { FenceEditContext } from "./fenceEditContext";
 import { mountCodeEditor } from "./mountCodeEditor";
-import { getLanguage } from './ObsidianUtils';
+import { languages, extensions } from './constants';
 
 declare module "obsidian" {
 	interface Workspace {
@@ -49,6 +49,10 @@ const languageTemplates: LanguageTemplates = {
 	ruby: {
 	  startTemplate: 'def\\s+${func_name}',
 	  endDetectionMethod: 'indent',
+	},
+	javascript: {
+		startTemplate: '${func_name}\\([\\w, ]*\\)\\s*{',
+		endDetectionMethod: 'brackets',
 	},
 	// Add more languages and their templates as needed
   };
@@ -152,17 +156,22 @@ class EmbeddedCode{
 		} else if (endDetectionMethod === 'brackets') {
 			// Example: Detect end by counting opening and closing brackets
 			let bracketCount = 0;
-			for (let i = startLine - 1; i < lines.length; i++) {
+			for (let i = startLine; i < lines.length; i++) {
 				const line = lines[i];
+				
 				bracketCount += (line.match(/\{/g) || []).length;
 				bracketCount -= (line.match(/\}/g) || []).length;
 
-				if (bracketCount === 0) {
+				if (bracketCount == 0) {
 					endLine =  i + 1; // Found the line where the closing bracket is
+					break;
 				}
 			}
 
-			endLine = lines.length;
+			if (endLine == -1){
+				endLine = lines.length;
+			}
+			
 		} else {
 			// Custom end detection method
 			// Adjust this based on your specific requirements for each language
@@ -255,6 +264,7 @@ class EmbeddedCode{
 		if (srcPath.startsWith("https://") || srcPath.startsWith("http://")) {
 			try {
 				let httpResp = await requestUrl({url: srcPath, method: "GET"})
+				this.path = srcPath.replace(/^(http[s]?:\/\/)/,'');
 				this.content = httpResp.text
 				this.embedType = "web";
 			} catch(e) {
@@ -272,8 +282,8 @@ class EmbeddedCode{
 				this.embedType = "file";
 
 			} else {
-				this.path = getLocalSource(this.context, this.path)
-				tFile = this.app.vault.getAbstractFileByPath(this.path)
+				this.path = getLocalSource(this.context, this.path);
+				tFile = this.app.vault.getAbstractFileByPath(this.path);
 				if (tFile instanceof TFile) {
 					this.createMetaInfo();
 					this.content = await this.app.vault.read(tFile);
@@ -335,11 +345,8 @@ class EmbeddedCode{
 			new Notice(`Cannot locate Refresh Button`);
 		}
 
-		console.log(this.container)
 		let copyButton = this.container.querySelector('.copy-code-button') as HTMLButtonElement;
-		console.log(copyButton)
 		if (copyButton){
-			console.log(copyButton)
 			setIcon(copyButton, 'clipboard');
 			copyButton.ariaLabel = "Copy to Clipboard";
 		}
@@ -419,7 +426,6 @@ class EmbeddedCode{
 			if (currentFile){
 				this.tryRefresh(workspace, currentFile, tFile.path,  3000, 300000);
 			}else{
-				console.log("Cannot get current file");
 			}
 
 		}else if (webFile){
@@ -430,13 +436,13 @@ class EmbeddedCode{
 	}
 
 	openFile(path:string) {
-
 		let alreadyOpen = false;
 
 		this.app.workspace.iterateAllLeaves((leaf: WorkspaceLeaf) => {
 			if (alreadyOpen){ return }
 			const viewState = leaf.getViewState();
 			if (viewState.state?.file == path){
+				
 				// file is already open in another leaf
 				this.app.workspace.setActiveLeaf(leaf);
 				alreadyOpen = true;
@@ -524,9 +530,8 @@ export default class EmbedAndEditCode extends Plugin {
 		<path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill-rule: nonzero; opacity: 1;"  transform=" translate(-15, -15)" d="M 15 3 C 12.031398 3 9.3028202 4.0834384 7.2070312 5.875 C 6.92097953443116 6.102722442718219 6.781996312146395 6.468394217532747 6.84458079887411 6.828625043966701 C 6.907165285601823 7.188855870400655 7.161341070445081 7.486222400749947 7.507438614792125 7.604118779359328 C 7.8535361591391695 7.722015157968709 8.236385060652946 7.641647866224133 8.5058594 7.394531200000001 C 10.25407 5.9000929 12.516602 5 15 5 C 20.19656 5 24.450989 8.9379267 24.951172 14 L 22 14 L 26 20 L 30 14 L 26.949219 14 C 26.437925 7.8516588 21.277839 3 15 3 z M 4 10 L 0 16 L 3.0507812 16 C 3.562075 22.148341 8.7221607 27 15 27 C 17.968602 27 20.69718 25.916562 22.792969 24.125 C 23.07902234348135 23.89727811487935 23.21800696636432 23.531605633011267 23.155422803510252 23.17137377040107 C 23.092838640656183 22.811141907790866 22.838662106347986 22.51377449397328 22.492563490644887 22.395878266348475 C 22.14646487494179 22.27798203872367 21.76361505519577 22.35835059547272 21.494141 22.605469 C 19.74593 24.099907 17.483398 25 15 25 C 9.80344 25 5.5490109 21.062074 5.0488281 16 L 8 16 L 4 10 z" stroke-linecap="round" />
 		</g>`)
 
-		this.settings.extensions.forEach(e => {
-			let l = getLanguage(e)
-			this.registerRenderer(l)
+		languages.forEach(e => {
+			this.registerRenderer(e)
 		});
 
 		if (this.app.workspace.getLeavesOfType(viewType).length < 1){
@@ -534,9 +539,11 @@ export default class EmbedAndEditCode extends Plugin {
 		}
 
 		try {
-			this.registerExtensions(this.settings.extensions, viewType);
+			this.registerExtensions(extensions, viewType);
 		} catch (e) {
+			console.log("Register Extension Error: " + e)
 		}
+		
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file) => {
 				menu.addItem((item) => {
@@ -552,11 +559,7 @@ export default class EmbedAndEditCode extends Plugin {
 
 		this.addRibbonIcon('file-json', t("CREATE_CODE"), async () => {
 			let activeFile = this.app.workspace.getActiveFile() ?? undefined;
-			if (activeFile){
-				console.log(`create file at ${activeFile?.path}`)
-			}else{
-				console.log("Can't get active")
-			}
+			
 			new CreateCodeFileModal(this, activeFile).open();
 		});
 
@@ -565,11 +568,6 @@ export default class EmbedAndEditCode extends Plugin {
 			name: 'Create new code file',
 			callback: async () => {
 				let activeFile = this.app.workspace.getActiveFile() ?? undefined;
-				if (activeFile){
-					console.log(`create file at ${activeFile?.path}`)
-				}else{
-					console.log("Can't get active")
-				}
 				
 				new CreateCodeFileModal(this, activeFile).open();
 			}
@@ -591,19 +589,14 @@ export default class EmbedAndEditCode extends Plugin {
 			})
 		);
 
-
 		//internal links
 		this.observer = new MutationObserver(async (mutation) => {
-			if (mutation.length !== 1) return;
-			if (mutation[0].addedNodes.length !== 1) return;
-			if (this.hover.linkText === null) return;
+			if (mutation.length !== 1 || mutation[0].addedNodes.length !== 1 || this.hover.linkText === null) return;
+			
 			//@ts-ignore
 			if (mutation[0].addedNodes[0].className !== "popover hover-popover") return;
 			const file = this.app.metadataCache.getFirstLinkpathDest(this.hover.linkText, this.hover.sourcePath);
 			if (!file) return;
-			// check file.extension in this.settings.extensions array
-			let valid = this.settings.extensions.includes(file.extension);
-			if (valid === false) return;
 			const fileContent = await this.app.vault.read(file);
 
 			const node: Node = mutation[0].addedNodes[0];

@@ -1,9 +1,4 @@
-import EmbedCodeFile from './main';
-
-import { PluginSettingTab, Setting, App } from 'obsidian';
-
 export interface EmbedAndEditSettings {
-	extensions: string[];
 	folding: boolean
 	allowAllFiletypes: boolean;
 	lineNumbers: boolean;
@@ -16,7 +11,6 @@ export interface EmbedAndEditSettings {
 }
 
 export const DEFAULT_SETTINGS: EmbedAndEditSettings = {
-	extensions: ["ts", "js", "py", "css", "c", "cpp", "go", "rs", "java", "lua", "php"],
 	folding: true,
 	allowAllFiletypes: false,
 	lineNumbers: true,

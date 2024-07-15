@@ -1,18 +1,4 @@
 {
-  "extensions": [
-    "ts",
-    "js",
-    "py",
-    "css",
-    "c",
-    "cpp",
-    "go",
-    "rs",
-    "java",
-    "lua",
-    "php",
-    "sh"
-  ],
   "folding": true,
   "allowAllFiletypes": false,
   "lineNumbers": true,

@@ -35,8 +35,7 @@ export function getFileName(filePath: string): string{
 
 export function getLocalSource(markdownContext: MarkdownPostProcessorContext, filePath: string): string{
 	const currentDirectory = path.dirname(markdownContext.sourcePath)
-	let srcPath = path.join(currentDirectory, filePath).replace(/\\/g, '/');
-	return srcPath
+	return path.join(currentDirectory, filePath).replace(/\\/g, '/');
 }
 
 export function extractSrcLines(fullSrc: string,  srcLinesNum: number[]): string {
