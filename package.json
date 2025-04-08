@@ -16,14 +16,27 @@
 		"@typescript-eslint/eslint-plugin": "5.29.0",
 		"@typescript-eslint/parser": "5.29.0",
 		"builtin-modules": "3.3.0",
-		"esbuild": "0.17.3",
-		"obsidian": "latest",
+		"esbuild": "^0.17.3",
 		"highlight.js": "latest",
+		"obsidian": "latest",
 		"terser": "^5.20.0",
 		"tslib": "2.4.0",
 		"typescript": "4.7.4"
 	},
 	"dependencies": {
-		"monaco-editor": "^0.43.0"
+		"@codemirror/lang-cpp": "^6.0.2",
+		"@codemirror/lang-css": "^6.3.1",
+		"@codemirror/lang-html": "^6.4.9",
+		"@codemirror/lang-java": "^6.0.1",
+		"@codemirror/lang-javascript": "^6.2.3",
+		"@codemirror/lang-php": "^6.0.1",
+		"@codemirror/lang-python": "^6.1.7",
+		"@codemirror/lang-rust": "^6.0.1",
+		"@codemirror/language": "^6.11.0",
+		"@codemirror/search": "^6.5.10",
+		"@codemirror/theme-one-dark": "^6.1.2",
+		"@replit/codemirror-minimap": "^0.5.2",
+		"@vscode/codicons": "^0.0.36",
+		"codemirror": "^6.0.1"
 	}
 }

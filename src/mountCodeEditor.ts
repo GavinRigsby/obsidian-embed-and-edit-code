@@ -1,26 +1,33 @@
 
 import CodeFilesPlugin from "./main";
-import * as monaco from 'monaco-editor'
-import { genEditorSettings } from "./ObsidianUtils";
-
+import { EditorView } from "@codemirror/view";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { LanguageSupport } from "@codemirror/language";
 
 export class mountCodeEditor {
 	contentEl: HTMLElement;
 	value = "";
-	monacoEditor: monaco.editor.IStandaloneCodeEditor;
+	codeMirrorEditor: EditorView;
 	plugin: CodeFilesPlugin;
 
-	constructor(contentEl: HTMLElement, plugin: CodeFilesPlugin, code: string, language: string, miniMap: boolean = true, wordWrap: boolean = false) {
+	constructor(contentEl: HTMLElement, plugin: CodeFilesPlugin, code: string, language: LanguageSupport, miniMap: boolean = true, wordWrap: boolean = false) {
 		this.contentEl = contentEl;
 		this.plugin = plugin;
 		this.value = code;
-		let setting = genEditorSettings(this.plugin.settings, language, miniMap, wordWrap);
-		this.monacoEditor = monaco.editor.create(this.contentEl, setting);
-		this.monacoEditor.setValue(this.value);
+		
+		// Basic editor mostly just syntax highlighting (all functionality within codeEditorView)
+		this.codeMirrorEditor = new EditorView({
+            doc: code,
+            extensions: [
+                language,
+                oneDark
+            ],
+            parent: this.contentEl,
+        });
 	}
 
 	getValue() {
-		return this.monacoEditor.getValue();
+		return this.codeMirrorEditor.state.doc.toString();
 	}
 
 

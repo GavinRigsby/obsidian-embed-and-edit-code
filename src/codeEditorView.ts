@@ -1,15 +1,32 @@
 
-import { TextFileView, TFile, WorkspaceLeaf } from "obsidian";
+import { normalizePath, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import { viewType } from "./settings";
 import CodeFilesPlugin from "./main";
-import * as monaco from 'monaco-editor'
-import { getLanguage, getThemeColor, genEditorSettings } from "./ObsidianUtils";
+import { Extension } from '@codemirror/state';
+import { getLanguage, getThemeColor, genEditorSettings, getLanguageExtension } from "./ObsidianUtils";
+import { EditorView, keymap } from "@codemirror/view";
+import { basicSetup } from "codemirror";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { showMinimap } from "@replit/codemirror-minimap"
+import {defaultKeymap} from "@codemirror/commands"
+import {
+	defaultHighlightStyle, syntaxHighlighting, indentOnInput,
+	bracketMatching, foldGutter, foldKeymap,
+	LanguageSupport
+  } from "@codemirror/language"
+
+import {
+	autocompletion, completionKeymap, closeBrackets,
+	closeBracketsKeymap
+} from "@codemirror/autocomplete"
+import { searchKeymap, search } from "@codemirror/search"
+import { SymbolTreePlugin } from "./extensions/SymbolTree/symboltree";
 
 
 export class CodeEditorView extends TextFileView {
 
 	value = "";
-	monacoEditor: monaco.editor.IStandaloneCodeEditor;
+	codeMirrorEditor: EditorView;
 
 
 	constructor(leaf: WorkspaceLeaf, private plugin: CodeFilesPlugin) {
@@ -20,30 +37,78 @@ export class CodeEditorView extends TextFileView {
 	execute order: onOpen -> onLoadFile -> setViewData -> onUnloadFile -> onClose
 	*/
 	async onOpen() {
+		console.log("Opened Editor")
 		await super.onOpen();
 	}
 
 	async onLoadFile(file: TFile) {
+		// Set up the container for the CodeMirror editor
+        const container = this.contentEl;
+		container.empty();
+
+		const languageExtension = await getLanguageExtension(file.extension);
+
+		if (languageExtension == null){
+			console.error(`No language found for extension .${file.extension}`)
+			return;
+		}
+
+		console.log(`Open new file with language ${languageExtension.language.name}`)
 
 		let setting = genEditorSettings(this.plugin.settings, this.file?.extension ?? "");
-		this.monacoEditor = monaco.editor.create(this.contentEl, setting);
+	
+		let create = (v: EditorView) => {
+			const dom = document.createElement('div');
+			return { dom }
+		}
 
-		this.monacoEditor.onDidChangeModelContent(() => {
-			this.requestSave();
-		});
+		// Create the CodeMirror editor instance
+        this.codeMirrorEditor = new EditorView({
+            doc: await this.app.vault.read(file),
+            extensions: [
+                basicSetup,
+				showMinimap.compute(['doc'], (state) => {
+					return {
+					  create,
+					  /* optional */
+					  displayText: 'characters',
+					  showOverlay: 'mouse-over'
+					}
+				}),
+				keymap.of([...searchKeymap, ...defaultKeymap]),
+				search(),
+				SymbolTreePlugin,
+                languageExtension,
+                oneDark
+            ],
+            parent: container,
+        });
 
-		this.addCtrlKeyWheelEvents();
-		this.addKeyEvents();
+		 const symbolTreePlugin = this.codeMirrorEditor.plugin(SymbolTreePlugin);
 
+		 if (symbolTreePlugin) {
+		 	symbolTreePlugin.updateOptions({
+		 		side: 'right' // Change the side to right
+		 	});
+		 }
+		
 		// const model = this.monacoEditor.getModel();
 		// monaco.editor.setModelLanguage(model, this.getLanguage());
 		await super.onLoadFile(file);
+
+		const cmEditorDiv = document.querySelector(".cm-editor") as HTMLDivElement | null;
+
+		if (cmEditorDiv){
+			cmEditorDiv.style.height = "86vh"
+		}
+		else {
+			console.error("Editor Div not found!")
+		}
 	}
 
 	async onUnloadFile(file: TFile) {
-		window.removeEventListener('keydown', this.keyHandle, true);
 		await super.onUnloadFile(file);
-		this.monacoEditor.dispose();
+		this.codeMirrorEditor.destroy();
 	}
 
 	async onClose() {
@@ -51,7 +116,7 @@ export class CodeEditorView extends TextFileView {
 	}
 
 	onResize() {
-		this.monacoEditor.layout();
+		this.codeMirrorEditor.requestMeasure();
 	}
 
 	getViewType(): string {
@@ -62,79 +127,25 @@ export class CodeEditorView extends TextFileView {
 		return file?.path ?? this.file?.path;
 	}
 
-
-
 	getViewData = () => {
-		return this.monacoEditor.getValue();
+		return this.codeMirrorEditor.state.doc.toString();
 	}
 
 	setViewData = (data: string, clear: boolean) => {
 		if (clear) {
-			this.monacoEditor.getModel()?.setValue(data);
-		} else {
-			this.monacoEditor.setValue(data);
-		}
+            this.codeMirrorEditor.dispatch({
+                changes: { from: 0, to: this.codeMirrorEditor.state.doc.length, insert: data }
+            });
+        } else {
+            this.codeMirrorEditor.dispatch({
+                changes: { from: this.codeMirrorEditor.state.doc.length, insert: data }
+            });
+        }
 	}
+
 	clear = () => {
-		this.monacoEditor.setValue('');
+		this.codeMirrorEditor.dispatch({
+            changes: { from: 0, to: this.codeMirrorEditor.state.doc.length, insert: '' }
+        });
 	}
-
-	private addKeyEvents = () => {
-		window.addEventListener('keydown', this.keyHandle, true);
-	}
-
-	private addCtrlKeyWheelEvents = () => {
-		this.containerEl.addEventListener('wheel', this.mousewheelHandle, true);
-
-	}
-
-	/*
-	修复不支持 `ctrl + 按键`快捷键的问题
-	原因是obsidian在app.js中增加了全局的keydown并且useCapture为true，猜测可能是为了支持快捷键就把阻止了子元素的事件的处理了
-	*/
-	private keyHandle = (event: KeyboardEvent) => {
-		const ctrlMap = new Map<string, string>([
-			['f', 'actions.find'],
-			['h', 'editor.action.startFindReplaceAction'],
-			['/', 'editor.action.commentLine'],
-			['Enter', 'editor.action.insertLineAfter'],
-			['[', 'editor.action.outdentLines'],
-			[']', 'editor.action.indentLines'],
-			['d', 'editor.action.copyLinesDownAction'],
-		]);
-		if (event.ctrlKey) {
-			const triggerName = ctrlMap.get(event.key);
-			if (triggerName) {
-				this.monacoEditor.trigger('', triggerName, null);
-			}
-		}
-
-
-		if (event.altKey) {
-			if (event.key === 'z') {
-				this.plugin.settings.wordWrap = !this.plugin.settings.wordWrap;
-				this.plugin.saveSettings();
-				this.monacoEditor.updateOptions({
-					wordWrap: this.plugin.settings.wordWrap ? "on" : "off",
-				})
-
-			}
-		}
-
-	}
-
-	private mousewheelHandle = (event: WheelEvent) => {
-		if (event.ctrlKey) {
-			let delta = 0 < event.deltaY ? 1 : -1;
-			this.plugin.settings.fontSize += delta;
-			this.plugin.saveSettings();
-			this.monacoEditor.updateOptions({
-				fontSize: this.plugin.settings.fontSize,
-			})
-			// Stop event propagation, so that the editor doesn't scroll
-			// scroll is monaco-editor's default behavior
-			event.stopPropagation();
-		}
-	}
-
 }

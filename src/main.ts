@@ -9,6 +9,7 @@ import { FenceEditModal } from "./fenceEditModal";
 import { FenceEditContext } from "./fenceEditContext";
 import { mountCodeEditor } from "./mountCodeEditor";
 import { languages, extensions } from './constants';
+import { getLanguageExtension } from './ObsidianUtils';
 
 declare module "obsidian" {
 	interface Workspace {
@@ -309,13 +310,8 @@ class EmbeddedCode{
 
 	}
 
+	// parseYaml needs to be called before this function
 	async render (){
-		if (this.embedType == "file"){
-			let tfile = this.getFile(this.path);
-			if (tfile instanceof TFile){
-				this.content = await this.app.vault.read(tfile);
-			}
-		}
 		this.filterContent();
 		MarkdownRenderer.render(this.app, '```' + this.codeLang + '\n' + this.content + '\n```', this.container, '', this.plugin);
 		this.addTitleLivePreview();
@@ -599,13 +595,19 @@ export default class EmbedAndEditCode extends Plugin {
 			if (!file) return;
 			const fileContent = await this.app.vault.read(file);
 
+
+			let language = await getLanguageExtension(file.extension)
+			if (language == null) {
+				console.log("No Language Found")
+				return
+			}
 			const node: Node = mutation[0].addedNodes[0];
 			const contentEl = createDiv();
 			new mountCodeEditor(
 				contentEl,
 				this,
 				fileContent,
-				file.extension,
+				language,
 				false,
 				true
 			);
@@ -689,7 +691,6 @@ export default class EmbedAndEditCode extends Plugin {
 			let embed = new EmbeddedCode(el, this, ctx, lang);
 			await embed.parseYaml(meta);
 			embed.render();
-			
 		});
 	}
 }

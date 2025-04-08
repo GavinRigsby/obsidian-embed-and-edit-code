@@ -1,5 +1,5 @@
 import { EmbedAndEditSettings } from "./settings";
-import * as monaco from 'monaco-editor'
+import { LanguageSupport } from "@codemirror/language";
 
 
 export const isObsidianThemeDark = () => document.body.classList.contains("theme-dark");
@@ -21,22 +21,18 @@ export function genEditorSettings(setting: EmbedAndEditSettings, language: strin
     if (minimap === false) {
         minimapFlag = false;
     }
-    const minmap: monaco.editor.IEditorMinimapOptions = {
-        enabled: minimapFlag,
-    }
 
     let wordwrapFlag = setting.wordWrap;
     if (wordwrap === true) {
         wordwrapFlag = wordwrap;
     }
 
-    let settings: monaco.editor.IStandaloneEditorConstructionOptions = {
+    let settings = {
         automaticLayout: true,
         language: getLanguage(language),
         theme: getThemeColor(setting.themeColor),
         lineNumbers: setting.lineNumbers ? "on" : "off",
         wordWrap: wordwrapFlag ? "on" : "off",
-        minimap: minmap,
         folding: setting.folding,
         fontSize: setting.fontSize,
         // Controls whether characters are highlighted that can be confused with basic ASCII characters
@@ -46,6 +42,36 @@ export function genEditorSettings(setting: EmbedAndEditSettings, language: strin
 
     }
     return settings;
+}
+
+export async function getLanguageExtension(extension: string) : Promise<LanguageSupport|null> {
+    switch (extension.toLowerCase()) {
+        case "js":
+            return (await import("@codemirror/lang-javascript")).javascript();
+        case "jsx":
+            return (await import("@codemirror/lang-javascript")).javascript({jsx: true});
+        case "py":
+            return (await import("@codemirror/lang-python")).python();
+        case "c":
+        case "cpp":
+        case "cs":
+            return (await import("@codemirror/lang-cpp")).cpp();
+        case "java":
+            return (await import("@codemirror/lang-java")).java();
+        case "html":
+            return (await import("@codemirror/lang-html")).html();
+        case "css":
+            return (await import("@codemirror/lang-css")).css();
+        case "php":
+            return (await import("@codemirror/lang-php")).php();
+        case "rs":
+            return (await import("@codemirror/lang-rust")).rust();
+        case "ts":
+            return (await import("@codemirror/lang-javascript")).javascript({ typescript: true });
+        // Add more languages as necessary...
+        default:
+            return null
+    }
 }
 
 export function getLanguage(extension: string) {

@@ -2,6 +2,8 @@ import { Modal, Notice, TFile } from "obsidian";
 import { mountCodeEditor } from "./mountCodeEditor";
 import CodeFilesPlugin from "./main";
 import { FenceEditContext } from "./fenceEditContext";
+import { getLanguageExtension } from "./ObsidianUtils";
+import { LanguageSupport } from "@codemirror/language";
 
 export class FenceEditModal extends Modal {
 	private codeEditor: mountCodeEditor;
@@ -9,7 +11,7 @@ export class FenceEditModal extends Modal {
 	private constructor(
 		private plugin: CodeFilesPlugin,
 		private code: string,
-		private language: string,
+		private language: LanguageSupport,
 		private onSave: (changedCode: string) => void
 	) {
 		super(plugin.app);
@@ -42,7 +44,7 @@ export class FenceEditModal extends Modal {
 		this.onSave(this.codeEditor.getValue());
 	}
 
-	static openOnCurrentCode(plugin: CodeFilesPlugin) {
+	static async openOnCurrentCode(plugin: CodeFilesPlugin) {
 		const context = FenceEditContext.create(plugin);
 
 		if (!context.isInFence()) {
@@ -56,10 +58,16 @@ export class FenceEditModal extends Modal {
 			return;
 		}
 
+		const language = await getLanguageExtension(fenceData.content)
+
+		if (language == null){
+			return;
+		}
+
 		new FenceEditModal(
 			plugin,
 			fenceData.content,
-			fenceData.language,
+			language,
 			(value) => context.replaceFenceContent(value)
 		).open();
 	}

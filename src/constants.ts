@@ -178,7 +178,8 @@ export const extensions: string[] = [
     "wgsl",
     "xml",
     "yaml",
-    "yml"
+    "yml",
+    "ts"
 ];
 
 export const languages : string[] = [

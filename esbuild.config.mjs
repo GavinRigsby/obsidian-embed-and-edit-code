@@ -2,6 +2,7 @@ import esbuild from "esbuild";
 import process from "process";
 import builtins from 'builtin-modules'
 import fs from 'fs';
+import path from 'path';
 
 const banner =
 `/*
@@ -22,6 +23,30 @@ let renamePlugin = {
 		})
 	},
 }
+
+let copyFilesPlugin = {
+	name: 'copy-files',
+	setup(build) {
+	  build.onEnd(() => {
+		// Files to copy
+		const filesToCopy = ['data.json', 'manifest.json', 'styles.css'];
+  
+		filesToCopy.forEach((file) => {
+		  const srcPath = path.resolve(file);
+		  const destPath = path.resolve('./dist', file);
+		  
+		  // Check if the file exists and copy it to dist
+		  if (fs.existsSync(srcPath)) {
+			fs.copyFileSync(srcPath, destPath);
+			console.log(`${file} copied to dist/`);
+		  } else {
+			console.log(`${file} not found, skipping.`);
+		  }
+		});
+	  });
+	},
+  };
+
 
 
 const prod = (process.argv[2] === 'production');
@@ -52,11 +77,11 @@ const context = await esbuild.context({
 	logLevel: "info",
 	sourcemap: prod ? false : 'inline',
 	treeShaking: true,
-	outfile: 'main.js',
+	outfile: './dist/main.js',
 	loader: {   
 		'.ttf': 'base64', 
 	},
-	plugins: [renamePlugin],
+	plugins: [renamePlugin, copyFilesPlugin],
 });
 
 if (prod) {
