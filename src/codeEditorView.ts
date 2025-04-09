@@ -20,7 +20,7 @@ import {
 	closeBracketsKeymap
 } from "@codemirror/autocomplete"
 import { searchKeymap, search } from "@codemirror/search"
-import { SymbolTreePlugin } from "./extensions/SymbolTree/symboltree";
+import { SymbolTree } from "@rigstech/codemirror-symboltree"
 
 
 export class CodeEditorView extends TextFileView {
@@ -75,22 +75,22 @@ export class CodeEditorView extends TextFileView {
 					  showOverlay: 'mouse-over'
 					}
 				}),
-				keymap.of([...searchKeymap, ...defaultKeymap]),
 				search(),
-				SymbolTreePlugin,
+				keymap.of([...defaultKeymap, ...searchKeymap]),
+				SymbolTree,
                 languageExtension,
                 oneDark
             ],
             parent: container,
         });
 
-		 const symbolTreePlugin = this.codeMirrorEditor.plugin(SymbolTreePlugin);
+		const symbolTreePlugin = this.codeMirrorEditor.plugin(SymbolTree);
 
-		 if (symbolTreePlugin) {
+		if (symbolTreePlugin) {
 		 	symbolTreePlugin.updateOptions({
 		 		side: 'right' // Change the side to right
 		 	});
-		 }
+		} 
 		
 		// const model = this.monacoEditor.getModel();
 		// monaco.editor.setModelLanguage(model, this.getLanguage());
