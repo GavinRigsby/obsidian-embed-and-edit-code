@@ -11,19 +11,6 @@ if you want to view the source, please visit the github repository of this plugi
 */
 `;
 
-let renamePlugin = {
-	name: 'example',
-	setup(build) {
-		build.onEnd(result => {
-			// fs.renameSync('main.css', 'styles.css');
-			const mystyleData = fs.readFileSync('mystyles.css', 'utf8');
-			const mainData = fs.readFileSync('main.css', 'utf8');
-			const combinedData = mystyleData + '\n' + mainData;
-			fs.writeFileSync('styles.css', combinedData, 'utf8');
-		})
-	},
-}
-
 let copyFilesPlugin = {
 	name: 'copy-files',
 	setup(build) {
@@ -46,8 +33,6 @@ let copyFilesPlugin = {
 	  });
 	},
   };
-
-
 
 const prod = (process.argv[2] === 'production');
 
@@ -81,7 +66,7 @@ const context = await esbuild.context({
 	loader: {   
 		'.ttf': 'base64', 
 	},
-	plugins: [renamePlugin, copyFilesPlugin],
+	plugins: [copyFilesPlugin],
 });
 
 if (prod) {

@@ -5,8 +5,7 @@
 	"main": "src/main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production && terser -o main.js main.js",
-		"version": "node version-bump.mjs && git add manifest.json versions.json"
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production && terser -o main.js main.js"
 	},
 	"keywords": [],
 	"author": "",
@@ -16,7 +15,7 @@
 		"@typescript-eslint/eslint-plugin": "5.29.0",
 		"@typescript-eslint/parser": "5.29.0",
 		"builtin-modules": "3.3.0",
-		"esbuild": "^0.17.3",
+		"esbuild": "^0.25.2",
 		"highlight.js": "latest",
 		"obsidian": "latest",
 		"terser": "^5.20.0",
@@ -36,8 +35,10 @@
 		"@codemirror/search": "^6.5.10",
 		"@codemirror/theme-one-dark": "^6.1.2",
 		"@replit/codemirror-minimap": "^0.5.2",
-		"@rigstech/codemirror-symboltree": "^1.0.5",
+		"@rigstech/codemirror-symboltree": "^1.0.6",
+		"@rigstech/codemirror-vscodesearch": "^1.0.4",
 		"@vscode/codicons": "^0.0.36",
-		"codemirror": "^6.0.1"
+		"codemirror": "^6.0.1",
+		"thememirror": "^2.0.1"
 	}
 }

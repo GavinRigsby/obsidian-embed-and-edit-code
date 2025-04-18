@@ -1,26 +1,14 @@
 
-import { normalizePath, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
+import { Modifier, Scope, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import { viewType } from "./settings";
 import CodeFilesPlugin from "./main";
-import { Extension } from '@codemirror/state';
-import { getLanguage, getThemeColor, genEditorSettings, getLanguageExtension } from "./ObsidianUtils";
+import { genEditorSettings, getLanguageExtension } from "./ObsidianUtils";
 import { EditorView, keymap } from "@codemirror/view";
 import { basicSetup } from "codemirror";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { showMinimap } from "@replit/codemirror-minimap"
-import {defaultKeymap} from "@codemirror/commands"
-import {
-	defaultHighlightStyle, syntaxHighlighting, indentOnInput,
-	bracketMatching, foldGutter, foldKeymap,
-	LanguageSupport
-  } from "@codemirror/language"
-
-import {
-	autocompletion, completionKeymap, closeBrackets,
-	closeBracketsKeymap
-} from "@codemirror/autocomplete"
-import { searchKeymap, search } from "@codemirror/search"
 import { SymbolTree } from "@rigstech/codemirror-symboltree"
+import { vscodeSearch, customSearchKeymap, } from "@rigstech/codemirror-vscodesearch"
+import { espresso } from 'thememirror';
 
 
 export class CodeEditorView extends TextFileView {
@@ -43,66 +31,123 @@ export class CodeEditorView extends TextFileView {
 
 	async onLoadFile(file: TFile) {
 		// Set up the container for the CodeMirror editor
-        const container = this.contentEl;
+		const container = this.contentEl;
 		container.empty();
 
 		const languageExtension = await getLanguageExtension(file.extension);
 
-		if (languageExtension == null){
+		if (languageExtension == null) {
 			console.error(`No language found for extension .${file.extension}`)
 			return;
 		}
 
-		console.log(`Open new file with language ${languageExtension.language.name}`)
-
 		let setting = genEditorSettings(this.plugin.settings, this.file?.extension ?? "");
-	
+
 		let create = (v: EditorView) => {
 			const dom = document.createElement('div');
 			return { dom }
 		}
 
 		// Create the CodeMirror editor instance
-        this.codeMirrorEditor = new EditorView({
-            doc: await this.app.vault.read(file),
-            extensions: [
-                basicSetup,
+		this.codeMirrorEditor = new EditorView({
+			doc: await this.app.vault.read(file),
+			extensions: [
+				basicSetup,
 				showMinimap.compute(['doc'], (state) => {
 					return {
-					  create,
-					  /* optional */
-					  displayText: 'characters',
-					  showOverlay: 'mouse-over'
+						create,
+						/* optional */
+						displayText: 'characters',
+						showOverlay: 'mouse-over'
 					}
 				}),
-				search(),
-				keymap.of([...defaultKeymap, ...searchKeymap]),
+				vscodeSearch,
+				keymap.of([
+					...customSearchKeymap
+				]),
 				SymbolTree,
-                languageExtension,
-                oneDark
-            ],
-            parent: container,
-        });
+				languageExtension,
+				espresso
+			],
+			parent: container,
+		});
 
 		const symbolTreePlugin = this.codeMirrorEditor.plugin(SymbolTree);
 
 		if (symbolTreePlugin) {
-		 	symbolTreePlugin.updateOptions({
-		 		side: 'right' // Change the side to right
-		 	});
-		} 
-		
-		// const model = this.monacoEditor.getModel();
-		// monaco.editor.setModelLanguage(model, this.getLanguage());
+			symbolTreePlugin.updateOptions({
+				side: 'right' // Change the side to right
+			});
+		}
+
+		this.overrideHotkeyFunctions();
+
 		await super.onLoadFile(file);
 
 		const cmEditorDiv = document.querySelector(".cm-editor") as HTMLDivElement | null;
 
-		if (cmEditorDiv){
+		if (cmEditorDiv) {
 			cmEditorDiv.style.height = "86vh"
 		}
 		else {
 			console.error("Editor Div not found!")
+		}
+	}
+
+	// Used to override Obsidian Hotkeys that conflict with editor hotkeys
+	private overrideHotkeyFunctions() {
+
+		this.scope = new Scope(this.app.scope)
+
+		const bindings = this.codeMirrorEditor.state.facet(keymap).flat();
+
+		for (const binding of bindings) {
+			// Skip if no key or run function
+			if (!binding.key || !binding.run) continue;
+	
+			// Convert "Mod-Shift-C" => { modifiers: ["Mod", "Shift"], key: "C" }
+			const parts = binding.key.split("-");
+			const key = parts.pop(); // actual key
+			const modifiers = parts;
+	
+			this.scope.register(modifiers as Modifier[], key!, (evt: KeyboardEvent) => {
+				this.runEditorCommand(evt);
+			});
+		}
+	}
+
+	private normalizeKey(event: KeyboardEvent): string {
+		const isMac = /Mac/i.test(navigator.userAgent);
+		const parts: string[] = [];
+
+		if ((isMac && event.metaKey) || (!isMac && event.ctrlKey)) parts.push("Mod");
+		if (event.altKey) parts.push("Alt");
+		if (event.shiftKey) parts.push("Shift");
+		let key = event.key;
+		if (key === " ") key = "Space";
+		else if (key === "Esc") key = "Escape";
+		else if (key.startsWith("Arrow")) key = key;
+		else key = key.length === 1 ? key.toLowerCase() : key;
+
+		parts.push(key);
+
+		return parts.join("-");
+	}
+
+	private runEditorCommand(event: KeyboardEvent) {
+		if (!this.codeMirrorEditor) return;
+
+		const key = this.normalizeKey(event);
+		const bindings = this.codeMirrorEditor.state.facet(keymap).flat();
+		const match = bindings.reverse().find(b => b.key === key);
+
+		if (match) {
+			const handled = match.run?.(this.codeMirrorEditor);
+			
+			if (handled) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
 		}
 	}
 
@@ -116,7 +161,9 @@ export class CodeEditorView extends TextFileView {
 	}
 
 	onResize() {
-		this.codeMirrorEditor.requestMeasure();
+		if (this.codeMirrorEditor){
+			this.codeMirrorEditor.requestMeasure();
+		}		
 	}
 
 	getViewType(): string {
@@ -133,19 +180,19 @@ export class CodeEditorView extends TextFileView {
 
 	setViewData = (data: string, clear: boolean) => {
 		if (clear) {
-            this.codeMirrorEditor.dispatch({
-                changes: { from: 0, to: this.codeMirrorEditor.state.doc.length, insert: data }
-            });
-        } else {
-            this.codeMirrorEditor.dispatch({
-                changes: { from: this.codeMirrorEditor.state.doc.length, insert: data }
-            });
-        }
+			this.codeMirrorEditor.dispatch({
+				changes: { from: 0, to: this.codeMirrorEditor.state.doc.length, insert: data }
+			});
+		} else {
+			this.codeMirrorEditor.dispatch({
+				changes: { from: this.codeMirrorEditor.state.doc.length, insert: data }
+			});
+		}
 	}
 
 	clear = () => {
 		this.codeMirrorEditor.dispatch({
-            changes: { from: 0, to: this.codeMirrorEditor.state.doc.length, insert: '' }
-        });
+			changes: { from: 0, to: this.codeMirrorEditor.state.doc.length, insert: '' }
+		});
 	}
 }

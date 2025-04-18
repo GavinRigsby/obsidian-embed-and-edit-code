@@ -1,4 +1,4 @@
-import { Plugin, MarkdownRenderer, TFile, MarkdownPostProcessorContext, MarkdownView, parseYaml, requestUrl, Notice, TAbstractFile, WorkspaceLeaf, Workspace, App, setIcon, addIcon} from 'obsidian';
+import { Plugin, MarkdownRenderer, TFile, MarkdownPostProcessorContext, MarkdownView, parseYaml, requestUrl, Notice, TAbstractFile, WorkspaceLeaf, Workspace, App, setIcon, addIcon, TextFileView} from 'obsidian';
 import { EmbedAndEditSettings, viewType, DEFAULT_SETTINGS} from "./settings";
 import { analyseSrcLines, extractSrcLines, getLocalSource, getFileName} from "./utils";
 import { CodeEditorView } from "./codeEditorView";
@@ -10,6 +10,8 @@ import { FenceEditContext } from "./fenceEditContext";
 import { mountCodeEditor } from "./mountCodeEditor";
 import { languages, extensions } from './constants';
 import { getLanguageExtension } from './ObsidianUtils';
+import { EditorView } from 'codemirror';
+import { openSearchPanel, searchKeymap } from '@codemirror/search';
 
 declare module "obsidian" {
 	interface Workspace {
@@ -534,6 +536,7 @@ export default class EmbedAndEditCode extends Plugin {
 			this.registerView(viewType, leaf => new CodeEditorView(leaf, this));
 		}
 
+
 		try {
 			this.registerExtensions(extensions, viewType);
 		} catch (e) {
@@ -552,6 +555,19 @@ export default class EmbedAndEditCode extends Plugin {
 				});
 			})
 		);
+
+		this.registerEvent(
+			this.app.workspace.on("file-open", (file) => {
+				if (file instanceof TFile) {
+					const view = this.app.workspace.getActiveViewOfType(TextFileView);
+					//console.log(`VIEW TYPE: ${view?.getViewType()}`)
+					if (view?.getViewType() == "code-editor")  {
+						
+						// REMOVE CTRL+F to allow code search
+					}
+				}
+			})
+		)
 
 		this.addRibbonIcon('file-json', t("CREATE_CODE"), async () => {
 			let activeFile = this.app.workspace.getActiveFile() ?? undefined;
