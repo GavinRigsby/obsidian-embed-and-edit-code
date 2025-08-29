@@ -32,10 +32,6 @@ export class FenceEditModal extends Modal {
 			"--dialog-height": "90vh",
 		});
 		this.modalEl.classList.add("dialog-height")
-
-		let closeButton = this.modalEl.querySelector<HTMLDivElement>(
-			".modal-close-button"
-		)
 		this.modalEl.classList.add(".btn-close-modal")
 	}
 

@@ -1,0 +1,67 @@
+{
+  "name": "My Cool Extension",
+  "description": "Adds rainbow cursors.",
+  "entry": "index.js",
+  "imports": [
+    {
+      "name": "showMinimap",
+      "type": "Extension",
+      "setup": {
+        "type": "computed",
+        "dependencies": [
+          "doc"
+        ],
+        "factory": {
+          "create": true,
+          "displayText": "{{displayType}}",
+          "showOverlay": "{{overlayType}}"
+        }
+      },
+      "config": [
+        {
+          "key": "rainbowMode",
+          "label": "Enable Rainbow Mode",
+          "type": "boolean",
+          "default": true
+        },
+        {
+          "key": "color",
+          "label": "Primary Color",
+          "type": "string",
+          "default": "#ff00ff"
+        },
+        {
+          "key": "speed",
+          "label": "Animation Speed",
+          "type": "number",
+          "default": 1.0
+        },
+        {
+          "key": "overlayType",
+          "label": "Overlay Visibility",
+          "type": "enum",
+          "default": "mouseOver",
+          "options": [
+            "always",
+            "mouseOver",
+            ""
+          ]
+        }
+      ],
+      "postMount": [
+        {
+          "plugin": "SymbolTree",
+          "method": "updateOptions",
+          "args": {
+            "side": "{{searchSidebarSide}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cobalt",
+      "type": "Theme",
+      "value": "cobalt"
+    }
+  ]
+}

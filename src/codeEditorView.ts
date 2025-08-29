@@ -3,12 +3,13 @@ import { Modifier, Scope, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import { viewType } from "./settings";
 import CodeFilesPlugin from "./main";
 import { genEditorSettings, getLanguageExtension } from "./ObsidianUtils";
-import { EditorView, keymap } from "@codemirror/view";
-import { basicSetup } from "codemirror";
+import { EditorView, KeyBinding, keymap } from "@codemirror/view";
+import { basicSetup, minimalSetup } from "codemirror";
 import { showMinimap } from "@replit/codemirror-minimap"
 import { SymbolTree } from "@rigstech/codemirror-symboltree"
 import { vscodeSearch, customSearchKeymap, } from "@rigstech/codemirror-vscodesearch"
 import { espresso } from 'thememirror';
+import { loadModules } from "./embedSettings";
 
 
 export class CodeEditorView extends TextFileView {
@@ -30,6 +31,7 @@ export class CodeEditorView extends TextFileView {
 	}
 
 	async onLoadFile(file: TFile) {
+		console.log("LOAD FILE")
 		// Set up the container for the CodeMirror editor
 		const container = this.contentEl;
 		container.empty();
@@ -41,44 +43,45 @@ export class CodeEditorView extends TextFileView {
 			return;
 		}
 
-		let setting = genEditorSettings(this.plugin.settings, this.file?.extension ?? "");
-
-		let create = (v: EditorView) => {
-			const dom = document.createElement('div');
-			return { dom }
-		}
+		let loadedModules = await loadModules(this.plugin, this.app.vault.adapter)
+		let extensions = loadedModules["extension"]
+		let keymaps = loadedModules["keymap"] as KeyBinding[]
+		
+		console.log("Editor Extensions:")
+		console.log(extensions)
 
 		// Create the CodeMirror editor instance
 		this.codeMirrorEditor = new EditorView({
 			doc: await this.app.vault.read(file),
 			extensions: [
-				basicSetup,
-				showMinimap.compute(['doc'], (state) => {
-					return {
-						create,
-						/* optional */
-						displayText: 'characters',
-						showOverlay: 'mouse-over'
-					}
-				}),
-				vscodeSearch,
-				keymap.of([
-					...customSearchKeymap
-				]),
-				SymbolTree,
+				minimalSetup,
+				// showMinimap.compute(['doc'], (state) => {
+				// 	return {
+				// 		create,
+				// 		/* optional */
+				// 		displayText: 'characters',
+				// 		showOverlay: 'mouse-over'
+				// 	}
+				// }),
+				// vscodeSearch,
+				 keymap.of([
+				 	...keymaps
+				 ]),
+				// SymbolTree,
 				languageExtension,
-				espresso
+				// espresso,
+				...extensions
 			],
 			parent: container,
 		});
 
-		const symbolTreePlugin = this.codeMirrorEditor.plugin(SymbolTree);
+		// const symbolTreePlugin = this.codeMirrorEditor.plugin(SymbolTree);
 
-		if (symbolTreePlugin) {
-			symbolTreePlugin.updateOptions({
-				side: 'right' // Change the side to right
-			});
-		}
+		// if (symbolTreePlugin) {
+		// 	symbolTreePlugin.updateOptions({
+		// 		side: 'right' // Change the side to right
+		// 	});
+		// }
 
 		this.overrideHotkeyFunctions();
 

@@ -1,7 +1,6 @@
 // English
 
 export default {
-
   AUTO: 'Following system',
   LIGHT: 'Light',
   DARK: 'Dark',

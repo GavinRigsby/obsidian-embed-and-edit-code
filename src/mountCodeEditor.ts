@@ -3,6 +3,7 @@ import CodeFilesPlugin from "./main";
 import { EditorView } from "@codemirror/view";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { LanguageSupport } from "@codemirror/language";
+import { basicSetup } from "codemirror";
 
 export class mountCodeEditor {
 	contentEl: HTMLElement;
@@ -19,6 +20,7 @@ export class mountCodeEditor {
 		this.codeMirrorEditor = new EditorView({
             doc: code,
             extensions: [
+				basicSetup,
                 language,
                 oneDark
             ],
@@ -29,6 +31,4 @@ export class mountCodeEditor {
 	getValue() {
 		return this.codeMirrorEditor.state.doc.toString();
 	}
-
-
 }

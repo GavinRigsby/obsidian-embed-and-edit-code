@@ -67,6 +67,8 @@ const context = await esbuild.context({
 		'.ttf': 'base64', 
 	},
 	plugins: [copyFilesPlugin],
+	platform: 'node',
+	target: ['node16'],
 });
 
 if (prod) {
