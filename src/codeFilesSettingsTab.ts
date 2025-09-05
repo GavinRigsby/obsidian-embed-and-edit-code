@@ -1,69 +1,56 @@
 import { App, DataAdapter, Modal, Notice, PluginSettingTab, Setting } from "obsidian";
 import CodeFilesPlugin from "./main";
 import { t } from 'src/lang/helpers';
-import decompress from 'decompress';
-import * as fs from "fs"
-import * as https from 'https';
 import { THEME_COLOR } from "./constants";
 import path from "path";
 import EmbedAndEditCode from "./main";
-import { ExtensionExport, ExtensionType, InitStyle, InitStyles, ModuleSettings } from "./embedSettings";
-import de from "./lang/locale/de";
-
-(globalThis as any).codemirrorModules = {
-	"@codemirror/state": require("@codemirror/state"),
-	"@codemirror/view": require("@codemirror/view"),
-	"@codemirror/language": require("@codemirror/language")
-};
+import { ExtensionExport, ModuleSettings } from "./embedSettings";
+import { PluginSettingsModal } from "./pluginSettingsModal";
+import { unzipSync, Unzipped, decompressSync } from "fflate";
+import { TarLocalFile, untar } from "untar.js";
+import { ensureDir } from "./utils";
 
 type SourceType = "npm" | "github";
 
-export interface CustomPluginData {
-	sourceType: "npm" | "github";
-	source: string;
-	name: string; 
-	description: string;
-	imports: ImportEntry[];
-}
+export const Capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export interface ImportEntry {
-	name: string;
-	value: string;
-	type: ExtensionType;	
-	setup: InitStyle;		// constant, function, facet
-	configs?: ConfigEntry[]; // Facets or Functions may need config
+interface StartingModuleSettings extends ModuleSettings {
+	source: string,
+	sourceType: "npm" | "github",
 }
-
-export interface ConfigEntry {
-	key: string;
-	name: string;
-	optional?: boolean;
-	type: "string" | "boolean" | "number" | "object";
-	default: any;
-	options?: any[];
-	
-}
-
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export class CustomModuleModal extends Modal {
 
 	plugin: EmbedAndEditCode;
+	moduleModal: PluginSettingsModal;
+	data: StartingModuleSettings = {
+		name: "",
+		id: "",
+		description: "",
+		entry: "",
+		imports: [],
+		source: "",
+		sourceType: "npm",
+	}
 
 	constructor(app: App, plugin: EmbedAndEditCode) {
 		super(app);
 		this.plugin = plugin
-	}
-
-	private data: CustomPluginData = {
-		name: "",
-		description: "",
-		source: "",
-		sourceType: "npm",
-		imports: []
+		this.moduleModal = new PluginSettingsModal(app, plugin);
+		this.moduleModal.setOnClose(() => {
+			Object.assign(this.data, this.moduleModal.module);
+			this.display();
+		}); // refresh on close
 	}
 
 	onOpen() {
+		this.display();
+	}
+
+	display() {
+		console.log("DISPLAY MODAL")
+		console.log(this.data)
+
 		const { contentEl } = this;
 		contentEl.empty();
 
@@ -76,11 +63,11 @@ export class CustomModuleModal extends Modal {
 			.addDropdown(drop => {
 				drop.addOption("npm", "NPM Package");
 				drop.addOption("github", "GitHub URL");
-				drop.setValue("npm");
+				drop.setValue(this.data.sourceType || "npm");
 				drop.onChange((val: SourceType) => {
 					this.data.sourceType = val;
 					sourceSetting.setName(val === "npm" ? "Package Name" : "GitHub URL");
-					sourceSetting.setDesc(val === "npm" ? "Enter the NPM package name": "Enter the Github URL")
+					sourceSetting.setDesc(val === "npm" ? "Enter the NPM package name" : "Enter the Github URL")
 				});
 			});
 
@@ -88,234 +75,61 @@ export class CustomModuleModal extends Modal {
 		const sourceSetting = new Setting(contentEl)
 			.setName("Package Name")
 			.setDesc("Enter the NPM package name")
-			.addText(text => text.onChange(val => this.data.source = val));
+			.addText(text => text
+				.setValue(this.data.source)
+				.onChange(val => this.data.source = val));
 
 		// Name
 		new Setting(contentEl)
 			.setName("Plugin Name")
 			.setDesc("Name of the plugin in the Obsidian settings")
-			.addText(text => text.onChange(val => this.data.name = val));
+			.addText(text => text
+				.onChange(val => this.data.name = val)
+				.setValue(this.data.name));
 
 		// Description
 		new Setting(contentEl)
 			.setName("Description")
 			.setDesc("Description of what this plugin does")
-			.addTextArea(text => text.onChange(val => this.data.description = val));
-
-		// Imports		
-		const addImportField = () => {
-			const importEntry: ImportEntry = { name: "", value: "", type: "extension", setup: "constant" };
-			this.data.imports.push(importEntry);
-
-			// Wrapper with styles to separate entries
-			const wrapper = importsContainer.createDiv("import-entry-wrapper");
-			wrapper.style.border = "1px solid var(--background-modifier-border)";
-			wrapper.style.padding = "8px";
-			wrapper.style.marginBottom = "10px";
-			wrapper.style.borderRadius = "6px";
-			wrapper.style.backgroundColor = "var(--background-primary)";
-
-			// Name and Import Name row
-			new Setting(wrapper)
-				.setName("Import Info")
-				.addText(text => text
-					.setPlaceholder("Readable Name")
-					.setValue(importEntry.name)
-					.onChange(val => importEntry.name = val))
-				.addText(text => text
-					.setPlaceholder("Import name")
-					.setValue(importEntry.value)
-					.onChange(val => importEntry.value = val));
-
-			// Type and Setup style row
-			new Setting(wrapper)
-				.setName("Module Type")
-				.addDropdown(drop => drop
-					.addOptions({
-						extension: "Extension",
-						theme: "Theme",
-						keymap: "Keymap",
-						lang: "Language"
-					})
-					.setValue(importEntry.type)
-					.onChange(val => {
-						importEntry.type = val as ImportEntry["type"];
-						themeStyleSetting.settingEl.style.display = val === "theme" ? "" : "none";
-						extensionFormatSettings.settingEl.style.display = val === "extension" ? "" : "none";
-					}))
-			
-			const extensionFormatSettings = new Setting(wrapper)
-				.setName("Extension Format")
-				.setDesc("Choose how this extension should be provided to CodeMirror. \nSome extensions are used directly, while others need to be called as functions or configured through facets.")
-				.addDropdown(drop => {
-					drop.setValue(importEntry.setup)
-						.onChange(val => {
-							importEntry.setup = val as InitStyle
-							functionExtensionWrapper.style.display = val === "function" ? "" : "none";
-						})
-						.addOptions( InitStyles.reduce<Record<string, string>>((acc, word) => {
-							acc[word] = capitalize(word);
-							return acc;
-							}, {}))
-				});
+			.addTextArea(text => text
+				.onChange(val => this.data.description = val)
+				.setValue(this.data.description));
 
 
-			const functionExtensionWrapper = wrapper.createDiv();
-
-			// Add an h2 and description
-			functionExtensionWrapper.createEl("h2", { text: "Function options" });
-
-			functionExtensionWrapper.style.display = "none";
-
-			new Setting(functionExtensionWrapper)
-			.setName("Function Arguments")
-			.setDesc("Add arguments to be passed to the function when initializing the extension")
-			.setHeading()
-			.addButton(btn => btn.setButtonText("+ Add Function Arugment").onClick(() => addFunctionConfig(importEntry, functionExtensionWrapper)));
-
-
-			const themeStyleSetting = new Setting(wrapper)
-				.setName("Theme Style")
-				.addDropdown(drop => {
-					drop.setValue("full")
-						.addOptions({
-							full: "Full",
-							base: "Base"
-						})
-				});
-
-			themeStyleSetting.settingEl.style.display = importEntry.type === "theme" ? "" : "none"
-
-			// Trash button
-			new Setting(wrapper)
-				.addExtraButton(btn => btn
-					.setIcon("trash")
-					.setTooltip("Remove import")
-					.onClick(() => {
-						this.data.imports.remove(importEntry);
-						wrapper.remove();
-					}));
-		};
-
-
-		const addFunctionConfig = (parent: any, functionExtensionWrapper: HTMLDivElement, nestingIndex = 1) => {
-			const configEntry: ConfigEntry = {
-				key: "", name: "", type: "string", default: "",
-			};
-			parent.configs = [configEntry];
-
-			const color = nestingIndex % 2 == 0 ? "var(--background-primary)" : "var(--background-secondary)";
-			
-			const configWrapper = functionExtensionWrapper.createDiv("config-entry-wrapper");
-			configWrapper.style.border = "1px dashed var(--background-modifier-border)";
-			configWrapper.style.padding = "8px";
-			configWrapper.style.marginBottom = "10px";
-			configWrapper.style.borderRadius = "6px";
-			configWrapper.style.backgroundColor = color;
-
-			new Setting(configWrapper)
-				.setName("Argument Name")
-				.setDesc("Name of the argument to be passed to the function")
-				.addText(text => 
-					text.setPlaceholder("arg1")
-					.setValue(configEntry.key)
-					.onChange(val => configEntry.key = val))
-				
-			new Setting(configWrapper)
-				.setName("Argument Type")
-				.setDesc("Type of the argument")
-				.addDropdown(drop => drop
-					.addOptions({
-						string: "String",
-						number: "Number",
-						boolean: "Boolean",
-						object: "Object"
-					})
-					.setValue(configEntry.type)
-					.onChange(val => {
-						configEntry.type = val as ConfigEntry["type"];
-						updateType();
-					}));
-				
-			updateType();
-			
-			new Setting(configWrapper)
-				.setName("Optional")
-				.addToggle(toggle => toggle
-					.setValue(!!configEntry.optional)
-					.onChange(val => configEntry.optional = val));
-			
-			const defaultValueSetting = new Setting(configWrapper)
-				.setName("Default Value")
-				.setDesc("Default value if no value is provided")
-			
-
-			const allowedOptionsSetting = new Setting(configWrapper)
-				.setName("Allowed Options")
-				.setDesc("Allowed options for this argument (for enum types) - comma separated")
-				.addText(text => text
-					.setPlaceholder("option1, option2, option3")
-					.setValue(configEntry.options ? configEntry.options.join(", ") : "")
-					.onChange(val => configEntry.options = val.split(",").map(s => s.trim())));
-
-			function updateType() {
-
-				defaultValueSetting.clear();
-
-				defaultValueSetting.setName("Default Value")
-				.setDesc("Default value if no value is provided")
-
-				if (configEntry.type === "boolean") {
-
-					defaultValueSetting.addToggle(toggle => toggle
-						.setValue(!!configEntry.default)
-						.onChange(val => configEntry.default = val));
-					
-					allowedOptionsSetting.settingEl.style.display = "none";
-					nestedArgumentSettings.settingEl.style.display = "none";
-				} 
-				else if (configEntry.type === "number") {
-					
-					defaultValueSetting.addText(text => text
-						.setPlaceholder("0")
-						.setValue(configEntry.default.toString())
-						.onChange(val => configEntry.default = parseInt(val) || 0));
-
-					allowedOptionsSetting.settingEl.style.display = "none";
-					nestedArgumentSettings.settingEl.style.display = "none";
-				}
-				else if (configEntry.type === "string") 
-				{
-					defaultValueSetting.addText(text => text
-						.setPlaceholder("default")
-						.setValue(configEntry.default)
-						.onChange(val => configEntry.default = val));
-
-					allowedOptionsSetting.settingEl.style.display = "";
-					nestedArgumentSettings.settingEl.style.display = "none";
-				} 
-				else {
-					nestedArgumentSettings.settingEl.style.display = "";
-					defaultValueSetting.settingEl.style.display = "none";
-				}
-			}
-
-			const nestedArgumentSettings = new Setting(configWrapper)
-			.setName("Arguments")
-			.setDesc("Add arguments for nested objects")
-			.setHeading()
-			.addButton(btn => btn.setButtonText("+ Add Function Arugment").onClick(() => addFunctionConfig(configEntry, configWrapper, nestingIndex + 1)));
-
-			nestedArgumentSettings.settingEl.style.display = "none";
-		}
-
-		const importsContainer = contentEl.createDiv();
-
-		new Setting(importsContainer)
+		new Setting(contentEl)
 			.setName("Plugin Modules")
 			.setDesc("Codemirror theme, extension, language, or keymap to import from the plugin")
 			.setHeading()
-			.addButton(btn => btn.setButtonText("+ Add Module").onClick(addImportField));
+			.addButton(btn =>
+				btn.setButtonText("+ Add Modules")
+					.onClick(() => {
+						this.moduleModal.createImport(this.data as ModuleSettings);
+					}
+					));
+
+
+		// show already configured imports
+		this.data.imports.forEach(imp => {
+			new Setting(contentEl)
+				.setName(imp.name)
+				.setClass("indented-setting")
+				.addButton(btn =>
+					btn.setIcon('pencil')
+						.setTooltip('Edit Settings')
+						.onClick(() => {
+							this.moduleModal.showImport(this.data as ModuleSettings, imp.name)
+						}))
+				.addButton(btn =>
+					btn.setIcon('trash')
+						.setTooltip('Delete Module')
+						.setClass('mod-warning')
+						.onClick(async () => {
+							this.data.imports.remove(imp);
+							await this.plugin.saveSettings();
+							this.display();
+						})
+				);
+		})
 
 		// Confirm / Cancel
 		new Setting(contentEl)
@@ -323,113 +137,83 @@ export class CustomModuleModal extends Modal {
 			.addButton(btn => btn.setButtonText("Add Plugin").setCta().onClick(() => this.onSubmit()));
 	}
 
-
-	async downloadZip(url: string, destinationPath: string): Promise<void> {
-		return new Promise((resolve, reject) => {
-			const fileStream = fs.createWriteStream(destinationPath);
-			console.log(url)
-			https.get(url, (res) => {
-
-				if (res.statusCode === 302 && res.headers.location) {
-					// Follow redirect
-					return this.downloadZip(res.headers.location, destinationPath).then(resolve).catch(reject);
-				}
-
-				if (res.statusCode !== 200) {
-					reject(new Error(`Download failed with status ${res.statusCode}`));
-					return;
-				}
-				res.pipe(fileStream);
-				fileStream.on('finish', () => {
-					fileStream.close();
-					resolve();
-				});
-			}).on('error', (err) => {
-				fs.unlinkSync(destinationPath);
-				reject(err);
-			});
-		});
+	private async downloadFile(url: string, destinationPath: string, adapter: DataAdapter): Promise<void> {
+		const response = await fetch(url);
+		if (!response.ok) throw new Error(`Failed to download file: ${response.statusText}`);
+		const arrayBuffer = await response.arrayBuffer();
+		await adapter.writeBinary(destinationPath, arrayBuffer);
 	}
-	
-	private async rewriteImports(dir: string, root: string, baseUrl: string) {
-		const files = await fs.promises.readdir(dir, { withFileTypes: true });
-		const dependencyDir = path.join(root, 'dependencies');
-		const packageEntryCache = new Map<string, string>();
+
+	// async extractZip(buffer: ArrayBuffer, outputDir: string, adapter: DataAdapter) {
+	// 	const files = await decompress(Buffer.from(buffer), undefined, { strip: 1 });
+	// 	for (const file of files) {
+	// 		const filePath = path.join(outputDir, file.path);
+	// 		if (file.type === 'file') {
+	// 			await adapter.writeBinary(filePath, file.data);
+	// 		} else if (file.type === 'directory') {
+	// 			await adapter.mkdir(filePath);
+	// 		}
+	// 	}
+	// }
+
+	getBufferCopy(data: Uint8Array<ArrayBufferLike>): ArrayBuffer {
+		const copy = new Uint8Array(data.length);
+		copy.set(data);
+		return copy.buffer;
+	}
+
+
+	async extractTarGz(buffer: ArrayBuffer, outputDir: string, adapter: DataAdapter) {
+		const uint8 = new Uint8Array(buffer);
+		const tarData = this.getBufferCopy(decompressSync(uint8)); // decompress gzip to tar Uint8Array
+		const files: TarLocalFile[] = untar(tarData);
 
 		for (const file of files) {
-			const fullPath = path.join(dir, file.name);
-			if (file.isDirectory()) {
-				await this.rewriteImports(fullPath, root, baseUrl);
-			} else if (file.isFile() && file.name.endsWith('js')) {
-				let content = await fs.promises.readFile(fullPath, 'utf-8');
+			const fileData = file.fileData;
 
-				// Handles both import ... from '...' and import '...'
-				const importRegex = /import\s*{\s*([^}]+?)\s*}\s*from\s*['"]([^'"]+)['"]/g;
-				// Handles require('...')
-				const requireRegex = /(?:var|let|const)\s+([a-zA-Z0-9_$]+)\s*=\s*require\(\s*['"]([^'"]+)['"]\s*\)/g;
-
-				const matches = [...content.matchAll(importRegex), ...content.matchAll(requireRegex)];
-
-				for (const match of matches) {
-
-					const imports = match[1];
-					const fullPkg = match[2];
-
-					console.log(match);
-					const safePkgName = fullPkg.replace('/', '__')
-
-					if (!packageEntryCache.has(fullPkg)) {
-
-						// Check if package is present in globals
-						if (fullPkg in (globalThis as any).codemirrorModules) {
-
-							let import_str = `const { ${imports} } = globalThis.codemirrorModules["${fullPkg}"]`
-							console.log(`${fullPkg} in shared packages`)
-							console.log(import_str)
-							console.log(match)
-
-							content = content.replace(match[0], import_str);
-							continue;
-						}
-
-						// not global get entry from package.json						
-						const pkgPath = path.join(dependencyDir, safePkgName, 'package.json');
-
-						try {
-							const pkgJsonRaw = await fs.promises.readFile(pkgPath, 'utf-8');
-							const pkgJson = JSON.parse(pkgJsonRaw);
-							
-							const mainEntry = pkgJson.module || pkgJson.exports?.import || pkgJson.main || 'index.js';
-							packageEntryCache.set(fullPkg, mainEntry);
-						} catch (e) {
-							console.log(`ERROR FINDING ENTRY ${e}`)
-							packageEntryCache.set(fullPkg, 'index.js'); // fallback
-						}
-					}
-					
-					const entryFile = packageEntryCache.get(fullPkg)!;
-					console.log(`Main entry for ${safePkgName} is ${entryFile}`)
-
-					const fullUrl = `${baseUrl}/dependencies/${safePkgName}/${entryFile}`.replace(/\\/g, '/');
-
-
-					// Replace using the original match string
-					content = content.replace(match[0], match[0].replace(fullPkg, fullUrl));
-				}
-
-				await fs.promises.writeFile(fullPath, content);
+			let filePath = file.name.replace(/\\/g, "/").replace(/^package\//, "");
+			const fullPath = path.join(outputDir, filePath);
+			// Only process files (not directories)
+			if (fileData instanceof Uint8Array) {
+				// Always copy to a new ArrayBuffer to avoid SharedArrayBuffer issues
+				const data = this.getBufferCopy(fileData);
+				console.log(`Writing file: ${fullPath}`);
+				await ensureDir(adapter, path.dirname(fullPath));
+				await adapter.writeBinary(fullPath, data);
+			} else {
+				console.log(`Creating directory: ${fullPath}`);
+				await adapter.mkdir(fullPath);
 			}
 		}
 	}
+
+
+	async extractZip(buffer: ArrayBuffer, outputDir: string, adapter: DataAdapter) {
+		const uint8 = new Uint8Array(buffer);
+		const files: Unzipped = unzipSync(uint8);
+
+		for (const [filePath, fileData] of Object.entries(files)) {
+			const fullPath = outputDir + "/" + filePath.replace(/\\/g, "/");
+			if (fileData instanceof Uint8Array) {
+				// Always copy to a new ArrayBuffer to avoid SharedArrayBuffer issues
+				const data = this.getBufferCopy(fileData);
+				await adapter.writeBinary(fullPath, data);
+			} else {
+				await adapter.mkdir(fullPath);
+			}
+		}
+	}
+
 
 	private async downloadPackageWithDependencies(
 		packageName: string,
 		outputDir: string,
 		version: string = 'latest',
 		seen = new Set<string>(),
-		dependency: boolean = false
+		dependency: boolean = false,
 	) {
 
+		const adapter = this.app.vault.adapter;
 		const registryUrl = 'https://registry.npmjs.org';
 		const id = `${packageName}@${version}`;
 		if (seen.has(id)) return; // avoid circular deps or re-downloading
@@ -445,35 +229,34 @@ export class CustomModuleModal extends Modal {
 		if (!pkg) throw new Error(`Could not resolve version ${version} of ${packageName}`);
 
 		const tarballUrl = pkg.dist.tarball;
+		const folder = dependency ? path.join(outputDir, "node_modules", packageName) : outputDir;
 
-		const folder = dependency ? path.join(outputDir, "dependencies", packageName.replace('/', '__')) : outputDir//path.join(outputDir, packageName.replace('/', '__'));
+		await adapter.mkdir(folder);
 
 		// Download and extract
 		const tarResponse = await fetch(tarballUrl);
 		if (!tarResponse.ok) throw new Error(`Failed to download tarball for ${packageName}`);
-		await fs.promises.mkdir(folder, { recursive: true });
-
 		const arrayBuffer = await tarResponse.arrayBuffer();
-		const buffer = Buffer.from(arrayBuffer);
-		await decompress(buffer, folder, {
-			strip: 1
-		});
+
+		await this.extractTarGz(arrayBuffer, folder, adapter);
+
+		console.log(`Downloaded and extracted ${packageName}@${version} to ${folder}`);
 
 		// Recursively download dependencies
 		const pkgJsonPath = path.join(folder, 'package.json');
-		const content = await fs.promises.readFile(pkgJsonPath, 'utf-8');
+		const content = await adapter.read(pkgJsonPath);
 		const parsed = JSON.parse(content);
 		const deps = parsed.dependencies || {};
 
-		console.log("DEPS")
-		console.log(deps)
-
+		// Check if in host packages
 		for (const [depName, depVersion] of Object.entries(deps)) {
 
-			if (depName in (globalThis as any).codemirrorModules){
+			if (depName in Object.keys((window as any).__HOST_CM__)) {
+				console.log(`Skipping host package ${depName}`);
 				continue; // skip these
 			}
 
+			console.log(`Downloading dependency ${depName}@${depVersion}`);
 			await this.downloadPackageWithDependencies(depName, outputDir, (depVersion as string).replace("^", ""), seen, true);
 		}
 	}
@@ -484,17 +267,22 @@ export class CustomModuleModal extends Modal {
 			return;
 		}
 
+		if (this.data.imports.length === 0) {
+			new Notice("Please add at least one module to import.");
+			return;
+		}
+
 		const pluginPath = path.join('.obsidian', 'plugins', 'embed-and-edit-code', 'modules');
-		let dest = path.join(pluginPath, this.data.name.replace(" ", "_"))
+		this.data.id = this.data.name.replace(/ /g, "-").toLowerCase();
+		let dest = path.join(pluginPath, this.data.id)
+		console.log(`DESTINATION PATH: ${dest}`)
 		const adapter = this.app.vault.adapter;
 		await adapter.mkdir(dest);
-		let absdest = path.join((adapter as any).basePath, dest)
 
 		if (this.data.sourceType == "npm") {
 			const packageName = this.data.source;
-
-			await this.downloadPackageWithDependencies(packageName, absdest);
-			await this.rewriteImports(absdest, absdest, `http://localhost:8443/${this.data.name.replace(" ", "_")}`)
+			await this.downloadPackageWithDependencies(packageName, dest);
+			console.log(`DOWNLOADED PACKAGE ${packageName} to ${dest}`)
 		}
 		else {
 			const repoUrl = this.data.source;
@@ -504,61 +292,94 @@ export class CustomModuleModal extends Modal {
 
 			const [, owner, repo, branch] = match;
 			const zipUrl = `https://github.com/${owner}/${repo.split('.')[0]}/archive/refs/heads/${branch || 'main'}.zip`;
-			let tmpZip = path.join(absdest, "tmp.zip");
-			console.log(tmpZip)
-			await this.downloadZip(zipUrl, tmpZip);
-			console.log("DOWNLOADED")
-			await decompress(tmpZip, absdest);
-			await fs.rm(tmpZip, () => { });
+			let tmpZip = path.join(dest, "tmp.zip");
+			await this.downloadFile(zipUrl, tmpZip, adapter);
+
+			const zipBuffer = await adapter.readBinary(tmpZip);
+			await this.extractZip(zipBuffer, tmpZip, adapter);
+
+			await adapter.remove(tmpZip);
+
+			const pkgJsonPath = path.join(dest, 'package.json');
+			const content = await adapter.read(pkgJsonPath);
+			const parsed = JSON.parse(content);
+			const deps = parsed.dependencies || {};
+
+			for (const [depName, depVersion] of Object.entries(deps)) {
+
+				if (depName in Object.keys((window as any).__HOST_CM__)) {
+					console.log(`Skipping package ${depName}`);
+					continue; // skip these
+				}
+
+				console.log(`Downloading dependency ${depName}@${depVersion}`);
+				await this.downloadPackageWithDependencies(depName, dest, (depVersion as string).replace("^", ""), new Set<string>(), true);
+			}
+
 		}
 
 		// The files have been downloaded now lets create the config
-		let settingsFile = path.join(dest, ".obsidianEmbedSettings")
-		let pkg = await this.findFirstFile(adapter, dest, "package.json")
-		if (!pkg) console.warn("ISSUE FINDING PACKAGE");
+		
+		console.log(`Look for package.json in ${dest}`)
+		const pkgJsonPath = path.join(dest, 'package.json');
+		if (!await adapter.exists(pkgJsonPath)) console.warn("ISSUE FINDING PACKAGE");
 
 		else {
-			let pkgContent = await adapter.read(pkg)
-
-			adapter.list
-
-			let pkgDir = path.dirname(pkg)
+			let pkgContent = await adapter.read(pkgJsonPath);
 
 			let pkgData = JSON.parse(pkgContent)
+			let entryPoint =
+				pkgData.module ||
+				pkgData.main ||
+				(pkgData.exports && typeof pkgData.exports === "object" ? pkgData.exports.import : undefined) ||
+				(pkgData.exports && typeof pkgData.exports === "string" ? pkgData.exports : undefined);
+
+			console.log(`ENTRY POINT ${entryPoint}`)
+			if (!entryPoint) {
+				new Notice("Could not determine entry point of the package. Please ensure the package.json has a 'module', 'exports.import', or 'main' field.");
+				return;
+			}
+
+			// process module and dependencies
+			await this.plugin.extensionLoader.loadModuleRecursive(dest, entryPoint, "<root>")
 
 			let settingsData = {
 				name: this.data.name,
 				description: this.data.description,
-				entry: pkgData.module || pkgData.exports.import,
+				entry: entryPoint,
 				imports: this.data.imports.map(x => {
 
-					if (x.type == "theme") {
-						this.plugin.settings.availableThemes.push({
-							name: x.name,
-							moduleId: this.data.name
-						})
-					}
+					// if (x.type == "theme") {
+					// 	console.log("ADDING THEME TO AVAILABLE THEMES")
+					// 	console.log(`${x.name} from ${this.data.id}`)
+					// 	this.plugin.settings.availableThemes.push({
+					// 		name: x.name,
+					// 		id: x.id,
+					// 		moduleId: this.data.id
+					// 	})
+					// }
 					return {
-						name: x.value,
+						name: x.name,
+						id: x.id,
 						type: x.type,
 						setup: x.setup,
 					}
 				})
 			}
 
+			// write data to .obsidianEmbedSettings
+			await adapter.write(path.join(dest, ".obsidianEmbedSettings"), JSON.stringify(settingsData))
+
 			this.plugin.settings.moduleDefintions![this.data.name] = settingsData as ModuleSettings
 
 			this.plugin.settings.modules!.push({
-				moduleId: this.data.name,
+				moduleId: this.data.name.replace(/ /g, "-").toLowerCase(),
 				enabled: false,
 				preferences: {}
 			});
 
-
-			console.log(settingsData);
+			console.log("PLUGIN SETTINGS");
 			console.log(this.plugin.settings)
-
-			adapter.write(path.normalize(settingsFile), JSON.stringify(settingsData, null, 2))
 		}
 
 		this.close();
@@ -646,16 +467,25 @@ class WarningModal extends Modal {
 
 
 export class AddCodeMirrorPluginModal extends Modal {
-	onSelect: (moduleId: string) => void;
 	onAddCustom: () => void;
+	onCloseCallback: () => void;
 
-	constructor(app: App, onSelect: (id: string) => void, onAddCustom: () => void) {
+	constructor(app: App, plugin: EmbedAndEditCode) {
 		super(app);
-		this.onSelect = onSelect;
-		this.onAddCustom = onAddCustom;
+		this.onAddCustom = () => {
+			new CustomModuleModal(app, plugin).open();
+		};
+	}
+
+	addOnClose(callback: () => void) {
+		this.onCloseCallback = callback;
 	}
 
 	onOpen() {
+		this.display();
+	}
+
+	display() {
 		const { contentEl } = this;
 		contentEl.empty();
 
@@ -685,33 +515,53 @@ export class AddCodeMirrorPluginModal extends Modal {
 			addBtn.addClass("mod-cta");
 			addBtn.onclick = () => {
 				this.close();
-				this.onSelect(module.id);
+				console.warn("Supported modules not yet implemented.");
 			};
 		});
 	}
 
 	onClose() {
 		this.contentEl.empty();
+		this.onCloseCallback?.();
 	}
 }
 
 export class CodeMirrorModuleSettingsModal extends Modal {
 	module: ModuleSettings;
 	plugin: CodeFilesPlugin;
+	moduleModal: PluginSettingsModal;
 
-	
+	onCloseCallback: () => void;
+
+	setOnClose(callback: () => void) {
+		this.onCloseCallback = callback;
+	}
 
 	constructor(app: App, plugin: CodeFilesPlugin, module: ModuleSettings) {
 		super(app);
-		this.module = module;
 		this.plugin = plugin;
+		this.module = module;
+		this.moduleModal = new PluginSettingsModal(app, plugin, module);
+		this.moduleModal.setOnClose(this.display.bind(this))
 	}
 
 	onOpen() {
+		this.display();
+	}
+
+	display() {
 		const { contentEl } = this;
 		contentEl.empty();
 
 		contentEl.createEl("h2", { text: `${this.module.name} Settings` });
+
+		new Setting(contentEl)
+			.addButton(btn =>
+				btn.setButtonText('Add Module')
+					.setCta()
+					.onClick(() => this.moduleModal.createImport(this.module))
+			);
+
 
 		// Split imports into their own types for viewing
 		let importData: { [key: string]: ExtensionExport[] } = {
@@ -727,42 +577,68 @@ export class CodeMirrorModuleSettingsModal extends Modal {
 		})
 
 		if (importData.themes.length > 0) {
-			contentEl.createEl("h3", {text: "Themes"});
+			contentEl.createEl("h3", { text: "Themes" });
 		}
 
 		console.log("THEME")
-		importData.themes.forEach( theme => {
+		importData.themes.forEach(theme => {
 			let enabled = this.plugin.settings.availableThemes.filter(t => t.name == theme.name).length == 1;
 
 			new Setting(contentEl)
-			.setName(theme.name)
-			.setClass("indented-setting")
-			.addToggle(toggle =>
-				toggle
-				.setValue(enabled)
-				.onChange(async (value) => {
-					if (value) {
-						this.plugin.settings.availableThemes.push({
-							name: theme.name,
-							moduleId: module.id
-						});
-					} else {
-						this.plugin.settings.availableThemes.remove({
-							name: theme.name,
-							moduleId: module.id
-						});
-					}
-					await this.plugin.saveSettings();
-				})
-			)
+				.setName(theme.name)
+				.setClass("indented-setting")
+				.addToggle(toggle =>
+					toggle
+						.setValue(enabled)
+						.onChange(async (value) => {
+							if (value) {
+								console.log("ADDING THEME TO AVAILABLE THEMES (1)")
+								console.log(`${theme.name} from ${module.id}`)
+								this.plugin.settings.availableThemes.push({
+									name: theme.name,
+									id: theme.id,
+									moduleId: module.id
+								});
+							} else {
+								console.log("REMOVING THEME FROM AVAILABLE THEMES")
+								console.log(`${theme.name} from ${module.id}`)
+								this.plugin.settings.availableThemes.remove({
+									name: theme.name,
+									id: theme.id,
+									moduleId: module.id
+								});
+							}
+
+							console.log(`SAVE THEME SETTINGS`)
+							console.log(this.module.imports)
+							await this.plugin.saveSettings();
+						})
+				)
+				.addButton(btn =>
+					btn.setIcon('pencil')
+						.setTooltip('Edit Settings')
+						.onClick(() => {
+							this.moduleModal.showImport(this.module, theme.name)
+						}))
+				.addButton(btn =>
+					btn.setIcon('trash')
+						.setTooltip('Delete Module')
+						.setClass('mod-warning')
+						.onClick(async () => {
+							this.module.imports.remove(theme);
+							this.plugin.settings.availableThemes = this.plugin.settings.availableThemes.filter(t => t.name != theme.name)
+							await this.plugin.saveSettings();
+							this.display();
+						})
+				);
 		})
 
 		console.log("EXTENSION")
 		if (importData.extensions.length > 0) {
-			contentEl.createEl("h3", {text: "Extensions"});
+			contentEl.createEl("h3", { text: "Extensions" });
 		}
 
-		importData.extensions.forEach( extension => {
+		importData.extensions.forEach(extension => {
 			const enabled = this.plugin.settings.extensions.includes(extension.name);
 
 
@@ -770,77 +646,122 @@ export class CodeMirrorModuleSettingsModal extends Modal {
 			console.log(this.plugin.settings.extensions)
 
 			new Setting(contentEl)
-			.setName(extension.name)
-			.setClass("indented-setting")
-			.addToggle(toggle =>
-				toggle
-				.setValue(enabled)
-				.onChange(async (value) => {
-					if (value) {
-						this.plugin.settings.extensions.push(extension.name);
-						
-					} else {
-						this.plugin.settings.extensions.remove(extension.name);
-					}
-					await this.plugin.saveSettings();
-				})
-			)
+				.setName(extension.name)
+				.setClass("indented-setting")
+				.addToggle(toggle =>
+					toggle
+						.setValue(enabled)
+						.onChange(async (value) => {
+							if (value) {
+								this.plugin.settings.extensions.push(extension.name);
+
+							} else {
+								this.plugin.settings.extensions.remove(extension.name);
+							}
+							await this.plugin.saveSettings();
+						})
+				)
+				.addButton(btn =>
+					btn.setIcon('pencil')
+						.setTooltip('Edit Settings')
+						.onClick(() => {
+							this.moduleModal.showImport(this.module, extension.name)
+						}))
+				.addButton(btn =>
+					btn.setIcon('trash')
+						.setTooltip('Delete Module')
+						.setClass('mod-warning')
+						.onClick(async () => {
+							this.module.imports.remove(extension);
+							if (this.plugin.settings.extensions.includes(extension.name)) {
+								this.plugin.settings.extensions.remove(extension.name);
+							}
+							await this.plugin.saveSettings();
+							this.display();
+						})
+				);
 		})
 
 		console.log("LANG")
 		if (importData.languages.length > 0) {
-			contentEl.createEl("h3", {text: "Languages"});
+			contentEl.createEl("h3", { text: "Languages" });
 		}
 
-		importData.languages.forEach( language => {
+		importData.languages.forEach(language => {
 			const enabled = this.plugin.settings.languages.includes(language.name);
 
 			new Setting(contentEl)
-			.setName(language.name)
-			.setClass("indented-setting")
-			.addToggle(toggle =>
-				toggle
-				.setValue(enabled)
-				.onChange(async (value) => {
-					if (value) {
-						this.plugin.settings.languages.push(language.name);
-					} else {
-						this.plugin.settings.languages.remove(language.name);
-					}
-					await this.plugin.saveSettings();
-				})
-			)
+				.setName(language.name)
+				.setClass("indented-setting")
+				.addToggle(toggle =>
+					toggle
+						.setValue(enabled)
+						.onChange(async (value) => {
+							if (value) {
+								this.plugin.settings.languages.push(language.name);
+							} else {
+								this.plugin.settings.languages.remove(language.name);
+							}
+							await this.plugin.saveSettings();
+						})
+				)
+				.addButton(btn =>
+					btn.setIcon('pencil')
+						.setTooltip('Edit Settings')
+						.onClick(() => {
+							this.moduleModal.showImport(this.module, language.name)
+						}))
+				.addButton(btn =>
+					btn.setIcon('trash')
+						.setTooltip('Delete Module')
+						.setClass('mod-warning')
+						.onClick(async () => {
+						})
+				);
 		})
 
 		console.log("KEYMAPS")
 		if (importData.keymaps.length > 0) {
-			contentEl.createEl("h3", {text: "Keymaps"});
+			contentEl.createEl("h3", { text: "Keymaps" });
 		}
 
-		importData.keymaps.forEach( keymap => {
+		importData.keymaps.forEach(keymap => {
 			const enabled = this.plugin.settings.keymaps.includes(keymap.name);
 
 			new Setting(contentEl)
-			.setName(keymap.name)
-			.setClass("indented-setting")
-			.addToggle(toggle =>
-				toggle
-				.setValue(enabled)
-				.onChange(async (value) => {
-					if (value) {
-						this.plugin.settings.keymaps.push(keymap.name);
-					} else {
-						this.plugin.settings.keymaps.remove(keymap.name);
-					}
-					await this.plugin.saveSettings();
-				})
-			)
+				.setName(keymap.name)
+				.setClass("indented-setting")
+				.addToggle(toggle =>
+					toggle
+						.setValue(enabled)
+						.onChange(async (value) => {
+							if (value) {
+								this.plugin.settings.keymaps.push(keymap.name);
+							} else {
+								this.plugin.settings.keymaps.remove(keymap.name);
+							}
+							await this.plugin.saveSettings();
+						})
+				).addButton(btn =>
+					btn.setIcon('pencil')
+						.setTooltip('Edit Settings')
+						.onClick(() => {
+							this.moduleModal.showImport(this.module, keymap.name)
+						}))
+				.addButton(btn =>
+					btn.setIcon('trash')
+						.setTooltip('Delete Module')
+						.setClass('mod-warning')
+						.onClick(async () => {
+						})
+				);
 		})
-		
+
 	}
 
 	onClose() {
 		this.contentEl.empty();
+		this.onCloseCallback?.();
 	}
 }
 
@@ -850,6 +771,13 @@ export class CodeFilesSettingsTab extends PluginSettingTab {
 	constructor(app: App, plugin: CodeFilesPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	saveModuleSettings = async (moduleId: string, moduleDefinition: ModuleSettings) => {
+		const adapter = this.app.vault.adapter;
+		const basePath = path.join('.obsidian', 'plugins', 'embed-and-edit-code', 'modules');
+		await adapter.write(path.join(basePath, moduleId, ".obsidianEmbedSettings"), JSON.stringify(moduleDefinition));
+		await this.plugin.saveSettings();
 	}
 
 	display(): void {
@@ -878,7 +806,7 @@ export class CodeFilesSettingsTab extends PluginSettingTab {
 			.setName("Theme")
 			.setDesc("Choose a theme for the editor, defaults to oneDark")
 			.addDropdown(async (dropdown) => {
-				this.plugin.settings.availableThemes.forEach(x => dropdown.addOption(x.name, x.name))
+				this.plugin.settings.availableThemes.forEach(x => dropdown.addOption(x.id, x.name))
 				dropdown.setValue(this.plugin.settings.theme);
 				dropdown.onChange(async (option) => {
 					this.plugin.settings.theme = option;
@@ -915,16 +843,6 @@ export class CodeFilesSettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName(t('MINIMAP'))
-			.setDesc(t('MINIMAP_DESC'))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.minimap)
-				.onChange(async (value) => {
-					this.plugin.settings.minimap = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
 			.setName(t('LINE_NUMBERS'))
 			.setDesc(t('LINE_NUMBERS_DESC'))
 			.addToggle(toggle => toggle
@@ -954,20 +872,12 @@ export class CodeFilesSettingsTab extends PluginSettingTab {
 				btn.setButtonText('Add Plugin')
 					.setCta()
 					.onClick(() => {
-						new AddCodeMirrorPluginModal(
+						const addPluginModal = new AddCodeMirrorPluginModal(
 							this.app,
-							(selectedModuleId) => {
-								// Handle adding supported module
-								console.log("Add supported module:", selectedModuleId);
-								// Add logic here to enable and load the module
-							},
-							() => {
-								// Handle adding custom module
-								console.log("Show file picker or path input for custom module");
-								// You could show a file dialog or another modal for input
-								new CustomModuleModal(this.app, this.plugin).open();
-							}
-						).open();					
+							this.plugin
+						)
+						addPluginModal.addOnClose(() => { this.display(); });
+						addPluginModal.open();
 					})
 			);
 
@@ -982,33 +892,69 @@ export class CodeFilesSettingsTab extends PluginSettingTab {
 
 				const moduleDefinition = this.plugin.settings.moduleDefintions![ext.moduleId]
 
-				const extSetting = new Setting(moduleDiv)
-				.setName(moduleDefinition.name)
-				.addToggle(toggle =>
-					toggle
-						.setValue(ext.enabled)
-						.onChange(async (value) => {
-							this.plugin.settings.modules![index].enabled = value;
-							await this.plugin.saveSettings();
-						})
-				)
-				.addButton(btn =>
-					btn.setIcon('pencil')
-						.setTooltip('Edit Settings')
-						.onClick(() => {
-							// Open edit modal
-							new CodeMirrorModuleSettingsModal(this.app, this.plugin, moduleDefinition).open();
-						})
-				)
-				.addButton(btn =>
-					btn.setIcon('trash')
-						.setTooltip('Delete Extension')
-						.setClass('mod-warning')
-						.onClick(async () => {
-							// Remove the module
+				console.log("MODULE DEFINITION")
+				console.log(moduleDefinition)
 
-						})
-				);
+				const extSetting = new Setting(moduleDiv)
+					.setName(moduleDefinition.name)
+					.addToggle(toggle =>
+						toggle
+							.setValue(ext.enabled)
+							.onChange(async (value) => {
+								this.plugin.settings.modules![index].enabled = value;
+								this.saveModuleSettings(ext.moduleId, moduleDefinition);
+							})
+					)
+					.addButton(btn =>
+						btn.setIcon('pencil')
+							.setTooltip('Edit Settings')
+							.onClick(() => {
+								// Open edit modal
+								const editPlugin = new CodeMirrorModuleSettingsModal(this.app, this.plugin, moduleDefinition);
+								editPlugin.setOnClose(() => {
+									this.saveModuleSettings(ext.moduleId, moduleDefinition);
+									this.display();
+								})
+								editPlugin.open();
+							})
+					)
+					.addButton(btn =>
+						btn.setIcon('trash')
+							.setTooltip('Delete Plugin')
+							.setClass('mod-warning')
+							.onClick(async () => {
+								// Remove the folder and files
+								const pluginPath = path.join('.obsidian', 'plugins', 'embed-and-edit-code', 'modules');
+								let dest = path.join(pluginPath, ext.moduleId)
+								const adapter = this.app.vault.adapter;
+								adapter.rmdir(dest, true);
+
+
+								this.plugin.settings.modules!.remove(ext);
+								moduleDefinition.imports.forEach(imp => {
+									if (imp.type == "theme" && this.plugin.settings.availableThemes.filter(t => t.name == imp.name).length == 1) {
+										this.plugin.settings.availableThemes.remove({
+											name: imp.name,
+											id: imp.id,
+											moduleId: ext.moduleId
+										})
+									}
+									if (imp.type == "extension" && this.plugin.settings.extensions.includes(imp.name)) {
+										this.plugin.settings.extensions.remove(imp.name)
+									}
+									if (imp.type == "language" && this.plugin.settings.languages.includes(imp.name)) {
+										this.plugin.settings.languages.remove(imp.name)
+									}
+									if (imp.type == "keymap" && this.plugin.settings.keymaps.includes(imp.name)) {
+										this.plugin.settings.keymaps.remove(imp.name)
+									}
+								});
+
+								delete this.plugin.settings.moduleDefintions![ext.moduleId]
+								this.saveModuleSettings(ext.moduleId, moduleDefinition);
+								this.display();
+							})
+					);
 
 				this.containerEl.appendChild(moduleDiv);
 			});

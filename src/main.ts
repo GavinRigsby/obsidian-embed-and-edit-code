@@ -18,12 +18,20 @@ import * as CMState from '@codemirror/state'
 import * as CMView from '@codemirror/view'
 import * as CMSearch from '@codemirror/search'
 import * as CMCommands from '@codemirror/commands'
+import * as CMLint from '@codemirror/lint'
+import * as CMLanguage from '@codemirror/language'
+import * as LEZCommon from '@lezer/common'
+import * as LEZHighlight from '@lezer/highlight'
 
 ;(window as any).__HOST_CM__ = {
 	"@codemirror/state": CMState,
 	"@codemirror/view": CMView,
 	"@codemirror/search": CMSearch,
 	"@codemirror/commands": CMCommands,
+	"@codemirror/lint": CMLint,
+	"@codemirror/language": CMLanguage,
+	"@lezer/common": LEZCommon,
+	"@lezer/highlight": LEZHighlight
 }
 
 declare module "obsidian" {

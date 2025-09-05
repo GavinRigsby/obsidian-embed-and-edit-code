@@ -11,7 +11,10 @@
 	"author": "",
 	"license": "MIT",
 	"devDependencies": {
+		"@types/decompress": "^4.2.7",
 		"@types/node": "^16.11.6",
+		"@types/tar-js": "^0.3.5",
+		"@types/untar.js": "^0.3.2",
 		"@typescript-eslint/eslint-plugin": "5.29.0",
 		"@typescript-eslint/parser": "5.29.0",
 		"builtin-modules": "3.3.0",
@@ -23,6 +26,7 @@
 		"typescript": "4.7.4"
 	},
 	"dependencies": {
+		"@codemirror/fold": "^0.19.4",
 		"@codemirror/lang-cpp": "^6.0.2",
 		"@codemirror/lang-css": "^6.3.1",
 		"@codemirror/lang-html": "^6.4.9",
@@ -39,6 +43,12 @@
 		"@rigstech/codemirror-vscodesearch": "^1.0.4",
 		"@vscode/codicons": "^0.0.36",
 		"codemirror": "^6.0.1",
-		"thememirror": "^2.0.1"
+		"decompress": "^4.2.1",
+		"fflate": "^0.8.2",
+		"js-untar": "^2.0.0",
+		"jszip": "^3.10.1",
+		"tar-js": "^0.3.0",
+		"thememirror": "^2.0.1",
+		"untar.js": "^0.3.0"
 	}
 }

@@ -2,12 +2,9 @@
 import { Modifier, Scope, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import { viewType } from "./settings";
 import CodeFilesPlugin from "./main";
-import { genEditorSettings, getLanguageExtension } from "./ObsidianUtils";
+import { getLanguageExtension } from "./ObsidianUtils";
 import { EditorView, KeyBinding, keymap } from "@codemirror/view";
-import { basicSetup, minimalSetup } from "codemirror";
-import { showMinimap } from "@replit/codemirror-minimap"
-import { SymbolTree } from "@rigstech/codemirror-symboltree"
-import { vscodeSearch, customSearchKeymap, } from "@rigstech/codemirror-vscodesearch"
+import { minimalSetup } from "codemirror";
 import { espresso } from 'thememirror';
 import { loadModules } from "./embedSettings";
 
@@ -26,12 +23,10 @@ export class CodeEditorView extends TextFileView {
 	execute order: onOpen -> onLoadFile -> setViewData -> onUnloadFile -> onClose
 	*/
 	async onOpen() {
-		console.log("Opened Editor")
 		await super.onOpen();
 	}
 
 	async onLoadFile(file: TFile) {
-		console.log("LOAD FILE")
 		// Set up the container for the CodeMirror editor
 		const container = this.contentEl;
 		container.empty();
@@ -46,6 +41,7 @@ export class CodeEditorView extends TextFileView {
 		let loadedModules = await loadModules(this.plugin, this.app.vault.adapter)
 		let extensions = loadedModules["extension"]
 		let keymaps = loadedModules["keymap"] as KeyBinding[]
+		let themes = loadedModules["theme"]
 		
 		console.log("Editor Extensions:")
 		console.log(extensions)
@@ -64,13 +60,15 @@ export class CodeEditorView extends TextFileView {
 				// 	}
 				// }),
 				// vscodeSearch,
+				// EditorView.lineWrapping // enable word wrapping
 				 keymap.of([
 				 	...keymaps
 				 ]),
 				// SymbolTree,
+				//espresso,
 				languageExtension,
-				// espresso,
-				...extensions
+				...extensions,
+				...themes
 			],
 			parent: container,
 		});

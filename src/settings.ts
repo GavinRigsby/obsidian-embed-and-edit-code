@@ -55,14 +55,9 @@ export interface CodeMirrorModuleSettings {
 	options: string[]
 }
 
-export interface moduleObject {
-	name: string,
-	value: string,
-	moduleId: string,
-}
-
 export interface Theme {
 	name: string;
+	id: string;
 	moduleId: string; // Module name or BuiltIn
 }
 
@@ -71,7 +66,6 @@ export interface CodeMirrorSettings {
 	allowAllFiletypes: boolean;
 	lineNumbers: boolean;
 	wordWrap: boolean;
-	minimap: boolean;
 	semanticValidation: boolean;
 	syntaxValidation: boolean;
 	themeColor: string;
@@ -93,7 +87,6 @@ export const DEFAULT_SETTINGS: CodeMirrorSettings = {
 	allowAllFiletypes: false,
 	lineNumbers: true,
 	wordWrap: true,
-	minimap: true,
 	semanticValidation: true,
 	syntaxValidation: true,
 	themeColor: "AUTO",
@@ -104,6 +97,7 @@ export const DEFAULT_SETTINGS: CodeMirrorSettings = {
 	languages: [],
 	availableThemes: [{
 		name: "One Dark",
+		id: "one-dark",
 		moduleId: "BuiltIn"
 	}]
 }

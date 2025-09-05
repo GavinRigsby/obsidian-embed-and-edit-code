@@ -1,4 +1,4 @@
-import { MarkdownPostProcessorContext } from "obsidian";
+import { DataAdapter, MarkdownPostProcessorContext } from "obsidian";
 import path from "path";
 
 export function pathJoin(dir: string, subpath: string): string {
@@ -31,6 +31,24 @@ export function analyseSrcLines(str: string): number[] {
 
 export function getFileName(filePath: string): string{
 	return path.basename(filePath)
+}
+
+export async function ensureDir(adapter: DataAdapter, dirPath: string) {
+    const parts = dirPath.split(/[\\/]/).filter(Boolean);
+    let current = parts.join("/");
+    let toCreate: string[] = [];
+
+    // Work backwards until we find an existing directory
+    while (current && !(await adapter.exists(current))) {
+        toCreate.unshift(current);
+        parts.pop();
+        current = parts.join("/");
+    }
+
+    // Create missing directories in order
+    for (const dir of toCreate) {
+        await adapter.mkdir(dir);
+    }
 }
 
 export function getLocalSource(markdownContext: MarkdownPostProcessorContext, filePath: string): string{

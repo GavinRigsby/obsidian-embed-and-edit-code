@@ -1,23 +1,55 @@
-import { DataAdapter, FileSystemAdapter } from "obsidian";
-import { CodeMirrorSettings } from "./settings";
+import { DataAdapter } from "obsidian";
 import { Extension } from "@codemirror/state"
-import path from "path";
 import CodeFilesPlugin from "./main";
-import { readFileSync } from "fs";
-import { KeyBinding, EditorView } from "@codemirror/view";
-export type ConfigType = "string" | "number" | "boolean" | "enum";
+import { KeyBinding } from "@codemirror/view";
+export type ConfigType = "string" | "integer" | "boolean" | "enum" | "array" | "object" | "record" | "preset function" | "preset variable";
+export const ConfigTypes = ["string" , "integer" , "boolean" , "enum", "array" , "object" , "record" , "preset function" , "preset variable"]
 export type ExtensionType = "extension" | "theme" | "keymap" | "language";
-export type InitStyle = "constant" | "function" | "facet"
-export const ConfigTypes = ["string" , "number" , "boolean" , "enum"]
 export const ExtensionTypes = ["extension" , "theme" , "keymap" , "language"]
+export type InitStyle = ExtensionExport["setup"]; 
 export const InitStyles = ["constant", "function", "facet"]
 
-interface ConfigOption {
+export interface BaseConfigOption {
     name: string;
+    id: string;
     type: ConfigType;
-    default: string | number | boolean;
-    options?: string[]; // for enum
+    default?: any;
 }
+
+export interface BooleanConfigOption extends BaseConfigOption {
+    type: "boolean";
+    default?: boolean;
+}
+
+export interface EnumConfigOption extends BaseConfigOption {
+    type: "enum";
+    options: string[];
+    default?: string;
+}
+
+export interface ArrayConfigOption extends BaseConfigOption {
+    type: "array";
+    arrayType: {
+        type: "string" | "integer" | "boolean";
+    };
+    default?: any[];
+}
+
+export interface ObjectConfigOption extends BaseConfigOption {
+    type: "object";
+    config?: ConfigOptions[];
+    default?: Record<string, any>;
+}
+
+export interface RecordConfigOption extends BaseConfigOption {
+    type: "record";
+    recordType: {
+        key: "string" | "integer";
+        value: "string" | "integer" | "boolean" | "array" | "object" | "record";
+    }
+}
+
+export type ConfigOptions = BaseConfigOption | EnumConfigOption | ObjectConfigOption | RecordConfigOption | BooleanConfigOption | ArrayConfigOption;
 
 interface PostFunctionCall {
     function: string;
@@ -26,15 +58,17 @@ interface PostFunctionCall {
 
 interface BaseExport {
     name: string;
+    id: string;
     type: ExtensionType;
-    config?: ConfigOption[];
+    config?: ConfigOptions[];
 }
 
 interface ThemeExport {
     name: string;
-    type: 'theme'
+    id: string;
+    type: 'theme';
     themeType: 'base' | 'full'
-    config?: ConfigOption[];
+    config?: ConfigOptions[];
 }
 
 interface FunctionInit {
@@ -45,23 +79,24 @@ interface FunctionInit {
 
 interface FacetInit {
     setup: "facet";
-    compute: {
-        with: string;
-        method: string;
-        args?: Record<string, any>;
-    };
+    dependencies: string[];
     post?: PostFunctionCall[];
 }
 
 interface ConstInit {
-    setup: "const";
+    setup: "constant";
     post?: PostFunctionCall[];
 }
 
-export type ExtensionExport = (BaseExport | ThemeExport) & (FunctionInit | FacetInit | ConstInit);
+export type ExtensionExport = 
+    | (BaseExport & FunctionInit)
+    | (BaseExport & FacetInit)
+    | (BaseExport & ConstInit)
+    | (ThemeExport & ConstInit);
 
 export interface ModuleSettings {
-    name: string, 
+    name: string,
+    id: string,
     description: string,
     entry: string;
     imports: ExtensionExport[];
@@ -111,6 +146,7 @@ export async function loadModules(plugin: CodeFilesPlugin, adapter: DataAdapter)
 
     console.log("LOAD MODULES")
 
+    // Check for user modules
     for (const module of (appConfig.modules ?? [])) {
         if (!module.enabled) continue;
 
@@ -121,6 +157,9 @@ export async function loadModules(plugin: CodeFilesPlugin, adapter: DataAdapter)
         const jsonSettings = await adapter.read(`/${modulePath}/.obsidianEmbedSettings`)
         const embedSettings: ModuleSettings = JSON.parse(jsonSettings)
 
+        console.log("COMPARE RUNNING VS STORED")
+        console.log(embedSettings)
+        console.log(appConfig.moduleDefintions)
         
         const modSettings = await plugin.extensionLoader.loadExtension(modulePath, embedSettings);
 
@@ -131,23 +170,35 @@ export async function loadModules(plugin: CodeFilesPlugin, adapter: DataAdapter)
         settings.theme = settings.theme.concat(modSettings.theme)
     }
 
+    // load builtin modules (if enabled)
+
+    if (appConfig.wordWrap) {
+        const { EditorView } = (window as any).__HOST_CM__["@codemirror/view"];
+        settings.extension.push(EditorView.lineWrapping);
+    }
+
+    if (appConfig.lineNumbers) {
+        const { lineNumbers } = (window as any).__HOST_CM__["@codemirror/view"];
+        settings.extension.push(lineNumbers());
+    }
+
+    if (appConfig.folding) {
+        const { foldGutter } = await import("@codemirror/fold");
+        settings.extension.push(foldGutter());
+    }
+
+    if (appConfig.fontSize) {
+        const { EditorView } = (window as any).__HOST_CM__["@codemirror/view"];
+        settings.extension.push(EditorView.theme({
+            "&": {
+                fontSize: `${appConfig.fontSize}px`
+            }
+        }));
+    }
+
+    console.log("Final Settings:")
+    console.log(settings)
+
     return settings
 }
 
-// Dummy resolvers (replace with actual implementations)
-async function resolveFunction(path: string, name: string, args: any) {
-    console.log(`Calling ${name} with`, args);
-    return { extension: true };
-}
-
-async function computeFacet(path: string, method: string, args: any) {
-    console.log(`Computing facet via ${method} with`, args);
-    return { extension: true };
-}
-
-async function resolveConst(path: string, name: string) {
-    const mod = await import(path);
-    const result = mod[name];
-
-    return result;
-}

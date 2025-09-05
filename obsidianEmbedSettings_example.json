@@ -1,67 +1,183 @@
+//https://github.com/replit/codemirror-indentation-markers
 {
-  "name": "My Cool Extension",
-  "description": "Adds rainbow cursors.",
-  "entry": "index.js",
+  "name": "Indentation Markers",
+  "id": "codemirror-indentation-markers",
+  "description": "A CodeMirror extension that renders indentation markers using a heuristic similar to what other popular editors, like Ace and Monaco, use.",
+  "entry": "dist/index.js",
   "imports": [
     {
-      "name": "showMinimap",
-      "type": "Extension",
-      "setup": {
-        "type": "computed",
-        "dependencies": [
-          "doc"
-        ],
-        "factory": {
-          "create": true,
-          "displayText": "{{displayType}}",
-          "showOverlay": "{{overlayType}}"
-        }
-      },
+      "name": "Indentation Markers",
+      "id": "indentationMarkers",
+      "type": "extension",
+      "setup": "function",
       "config": [
         {
-          "key": "rainbowMode",
-          "label": "Enable Rainbow Mode",
+          "name": "Highlight Active Block",
+          "id": "highlightActiveBlock",
           "type": "boolean",
           "default": true
         },
         {
-          "key": "color",
-          "label": "Primary Color",
-          "type": "string",
-          "default": "#ff00ff"
+          "name": "Hide First Indent",
+          "id": "hideFirstIndent",
+          "type": "boolean",
+          "default": false
         },
         {
-          "key": "speed",
-          "label": "Animation Speed",
-          "type": "number",
-          "default": 1.0
-        },
-        {
-          "key": "overlayType",
-          "label": "Overlay Visibility",
+          "name": "Marker Type",
+          "id": "markerType",
           "type": "enum",
-          "default": "mouseOver",
+          "default": "fullScope",
           "options": [
-            "always",
-            "mouseOver",
-            ""
+            "fullScope",
+            "codeOnly"
+          ]
+        },
+        {
+          "name": "Thickeness",
+          "id": "thickness",
+          "type": "integer",
+          "default": 1
+        },
+        {
+          "name": "Active Thickness",
+          "id": "activeThickness",
+          "type": "integer",
+          "default": null
+        },
+        {
+          "name": "Color",
+          "id": "color",
+          "type": "object",
+          "config": [
+            {
+              "name": "Light",
+              "id": "light",
+              "type": "string",
+              "default": "#F0F1F2"
+            },
+            {
+              "name": "Dark",
+              "id": "dark",
+              "type": "string",
+              "default": "#2B3245"
+            },
+            {
+              "name": "Active Light",
+              "id": "activeLight",
+              "type": "string",
+              "default": "#E4E5E6"
+            },
+            {
+              "name": "Active Dark",
+              "id": "activeDark",
+              "type": "string",
+              "default": "#3C445C"
+            }
           ]
         }
-      ],
-      "postMount": [
+      ]
+    }
+  ]
+}
+
+//https://github.com/replit/codemirror-lang-solidity
+{
+  "name": "Solidity Language Support",
+  "id": "codemirror-lang-solidity",
+  "description": "Solidity language support for CodeMirror 6",
+  "entry": "dist/index.js",
+  "imports": [
+    {
+      "name": "Solidity",
+      "id": "solidity",
+      "type": "language",
+      "setup": "constant"
+    }
+  ]
+}
+
+//https://github.com/replit/codemirror-minimap
+{
+  "name": "Minimap",
+  "id": "codemirror-minimap",
+  "description": "A CodeMirror extension that adds a minimap to the editor.",
+  "entry": "dist/index.js",
+  "imports": [
+    {
+      "name": "Minimap",
+      "id": "minimap",
+      "type": "extension",
+      "setup": "computed",
+      "dependencies": ["doc"],
+      "config": [
         {
-          "plugin": "SymbolTree",
-          "method": "updateOptions",
-          "args": {
-            "side": "{{searchSidebarSide}}"
+          "name": "Create",
+          "id": "create",
+          "type": "function",
+          "default": "createDiv"
+        },
+        {
+          "name": "Display Text",
+          "id": "displayText",
+          "type": "enum",
+          "default": "blocks",
+          "options": [
+            "blocks",
+            "characters"
+          ]
+        },
+        {
+          "name" : "Show Overlay",
+          "id": "showOverlay",
+          "type": "enum",
+          "default": "alaways",
+          "options": [
+            "always",
+            "mouse-over"
+          ]
+        },
+        {
+          "name": "Gutters",
+          "id": "gutters",
+          "type": "array",
+          "arrayType": {
+            "type": "record",
+            "recordType": {
+              "key": "integer",
+              "value": "string"
+            }
           }
+        }
+      ]
+    }
+  ]
+}
+
+//https://github.com/A99US/CM6-TextToLink
+{
+  "name": "Text to Link",
+  "id": "cm6-text-to-link",
+  "description": "A CodeMirror 6 extension that automatically converts URLs and email addresses into clickable links.",
+  "entry": "dist/index.js",
+  "imports": [
+    {
+      "name": "Text to Link",
+      "id": "textToLink",
+      "type": "extension",
+      "setup": "function",
+      "config": [
+        {
+          "type": "predefined",
+          "value": "EditorView"
         }
       ]
     },
     {
-      "name": "Cobalt",
-      "type": "Theme",
-      "value": "cobalt"
+      "name" : "Hyperlink Style",
+      "id": "hyperlinkStyle",
+      "type": "extension",
+      "setup": "constant"
     }
   ]
 }
